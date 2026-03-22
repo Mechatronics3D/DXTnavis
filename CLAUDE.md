@@ -1,7 +1,7 @@
 # DXTnavis - Navisworks 2025 Property Viewer Plugin
 
-> **Context:** Standalone Navisworks plugin for property viewing and 3D control
-> **Version:** 1.1.0 (TimeLiner Enhancement) → 1.2.0 Planning
+> **Context:** Standalone Navisworks plugin for property viewing, 3D control, and Pipeline 4D automation
+> **Version:** 1.7.0 (Pipeline 4D Schedule Builder)
 > **Docs Index:** [docs/_INDEX.md](docs/_INDEX.md)
 > **Research Target:** EC3 2026 (Corfu), LDAC 2026 (Dubrovnik)
 
@@ -58,16 +58,65 @@ foreach (var item in items) collection.Add(item);  // 445K iterations = UI freez
 | 10 | Schedule Builder | ✅ 100% |
 | 11 | Object Grouping MVP | ✅ 100% |
 | 12 | Grouped Data Structure | ✅ 100% |
-| **13** | **TimeLiner Enhancement** | 🚧 20% |
-| **14** | **BIM-Schedule Ontology Matcher** | 📋 Planning |
+| 13 | TimeLiner Enhancement | ✅ 100% |
+| 14 | BIM Ontology System | ✅ 100% |
+| 15 | Geometry Export | ✅ 100% |
+| 16 | Unified CSV Export | ✅ 100% |
+| 17 | Spatial Connectivity | ✅ 100% |
+| 18 | 3D Mesh GLB Export | ✅ 100% |
+| **19** | **Pipeline 4D Schedule Builder** | ✅ 100% |
 
 **→ Changelog:** [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
-## v1.1.0 TimeLiner Enhancement (Phase 13) 🚧
+## v1.7.0 Pipeline 4D Schedule Builder (Phase 19) ✅
 
-### 🎯 목표: TimeLiner 직접 연동 강화
+### 목표: SP3D Pipeline/PipeRun 기반 TimeLiner 4D 자동 생성
+
+**문제**: SP3D Pipeline 객체에 외부 스케줄이 없는 상황에서 TimeLiner 4D 시뮬레이션을 자동 생성해야 함
+
+**해결**: AllProperties CSV의 SP3D 속성(Pipeline, PipeRun)을 기반으로 객체를 그룹핑하고, 시간을 자동 매핑하여 TimeLiner Task + Selection Set을 자동 생성
+
+### 데이터 흐름
+```
+AllProperties CSV → Pipeline/PipeRun 추출 → 그룹핑 → Time Mapping → List<ScheduleData>
+                                                                       ├→ SelectionSetService (기존)
+                                                                       ├→ TimeLinerService (기존)
+                                                                       └→ CSV Export
+```
+
+### 새 파일
+| File | Description |
+|------|-------------|
+| `Models/PipelineScheduleOptions.cs` | Options + enums + 내부 그룹 모델 |
+| `Services/PipelineScheduleBuilder.cs` | CSV파싱 → 그룹핑 → Time Mapping → ScheduleData → CSV Export |
+| `ViewModels/PipelineScheduleViewModel.cs` | UI 바인딩, Preview/Execute/Export commands |
+
+### 수정 파일
+| File | Change |
+|------|--------|
+| `Views/DXwindow.xaml` | "Pipeline 4D" TabItem 추가 |
+| `ViewModels/DXwindowViewModel.cs` | `Pipeline4D` 프로퍼티 + 초기화 |
+| `DXTnavis.csproj` | Compile Include 추가 |
+
+### 시간 계산 (Hybrid 전략)
+```
+duration = BaseDurationHours + (ObjectCount × HoursPerObject)
+예: 18 objects → 8h + (18 × 0.5h) = 17h ≈ 3일
+```
+
+### 핵심 설계
+- **PipeRun = Task 단위**: 각 PipeRun이 1개 TimeLiner Task
+- **기존 인프라 100% 재사용**: `List<ScheduleData>` 생성만으로 SelectionSet + TimeLiner 자동 연결
+- **CSV 자동 감지**: Pipeline/PipeRun 컬럼 자동 감지 + `DisplayString:` 접두사 제거
+- **Spatial ordering**: geometry.csv의 CentroidX로 공간 정렬 (선택)
+
+---
+
+## v1.1.0 TimeLiner Enhancement (Phase 13) ✅
+
+### 목표: TimeLiner 직접 연동 강화
 
 ### Features (In Progress)
 - **TaskType 한글화** - 구성/철거/임시로 UI 표시 (내부 영문 변환)
@@ -270,10 +319,11 @@ dxtnavis/
 │   ├── CsvViewerViewModel.cs         # CSV 뷰어 VM
 │   ├── AWP4DViewModel.cs             # AWP 4D VM (v0.6.0)
 │   ├── ScheduleBuilderViewModel.cs   # Schedule Builder VM (v0.8.0)
+│   ├── PipelineScheduleViewModel.cs  # Pipeline 4D VM (v1.7.0)
 │   ├── ObjectGroupViewModel.cs       # 객체 그룹화 VM (v0.9.0)
 │   └── HierarchyNodeViewModel.cs     # 트리 노드
 ├── Views/                 # WPF Views
-│   └── DXwindow.xaml                 # 메인 UI + AWP 4D 탭 + Schedule 탭
+│   └── DXwindow.xaml                 # 메인 UI (6 Tabs)
 ├── Models/                # Data models
 │   ├── ObjectGroupModel.cs           # 객체 그룹 모델 (v1.0.0)
 │   ├── PropertyRecord.cs             # 속성 레코드 (v1.0.0)
@@ -282,10 +332,7 @@ dxtnavis/
 │   ├── AWP4DOptions.cs               # 자동화 옵션 (v0.6.0)
 │   ├── AutomationResult.cs           # 실행 결과 (v0.6.0)
 │   ├── ValidationResult.cs           # 검증 결과 (v0.6.0)
-│   ├── MatchCandidate.cs             # 매칭 후보 (v1.2.0) 📋
-│   ├── MatchResult.cs                # 매칭 결과 (v1.2.0) 📋
-│   ├── FieldWeight.cs                # 필드 가중치 (v1.2.0) 📋
-│   └── CWPTask.cs                    # CWP 작업 (v1.2.0) 📋
+│   └── PipelineScheduleOptions.cs    # Pipeline 4D 옵션/모델 (v1.7.0)
 └── docs/
     ├── phases/
     │   └── phase-8-awp-4d-automation.md
@@ -373,6 +420,36 @@ Element_002,철골 설치,2026-01-18,2026-01-25,Construct,Zone-A/Level-2
 | Object Match | ObjectMatcher.cs | SyncID → ModelItem |
 | Validation | AWP4DValidator.cs | Pre/Post 검증 |
 | AWP 4D UI | AWP4DViewModel.cs | UI 바인딩 |
+| Pipeline 4D Builder | PipelineScheduleBuilder.cs | Pipeline/PipeRun → Schedule |
+| Pipeline 4D Options | PipelineScheduleOptions.cs | 옵션 + 그룹 모델 |
+| Pipeline 4D UI | PipelineScheduleViewModel.cs | Pipeline 4D 탭 UI 바인딩 |
+
+---
+
+## Pipeline 4D Usage
+
+### AllProperties CSV 형식
+```csv
+ObjectId,DisplayName,...,Pipeline,PipeRun,...
+guid-1,Pipe-001,...,DisplayString:P-015,DisplayString:Dist.Unit B01-4-P-0102,...
+```
+
+### 자동 감지 동작
+- **Pipeline/PipeRun 컬럼**: 헤더명 또는 값 패턴(P-015, Dist.Unit)으로 자동 감지
+- **DisplayString: 접두사**: `DisplayString:P-015` → `P-015` 자동 변환
+- **인코딩**: UTF-8 BOM / UTF-8 / UTF-16 LE 자동 감지
+
+### 시간 매핑 전략
+| 전략 | 계산식 | 용도 |
+|------|--------|------|
+| Hybrid (권장) | base + count × per_object | 균형잡힌 계산 |
+| FixedDuration | base만 사용 | 단순 일정 |
+| ObjectCountBased | count × per_object | 작업량 비례 |
+
+### 출력
+- **Selection Set**: `Pipeline Sets/{Pipeline}/{PipeRun}` 계층 구조
+- **TimeLiner Task**: `Pipeline Schedule/{Pipeline}/{PipeRun}` 계층 구조
+- **CSV Export**: Navisworks TimeLiner Import용 CSV 파일
 
 ---
 

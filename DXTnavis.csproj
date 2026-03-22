@@ -184,6 +184,10 @@
     <Compile Include="Models\PropertyRecord.cs" />
     <Compile Include="Models\FilterOption.cs" />
     <Compile Include="Models\DateMode.cs" />
+    <!-- Pipeline Schedule Builder -->
+    <Compile Include="Models\PipelineScheduleOptions.cs" />
+    <Compile Include="Services\PipelineScheduleBuilder.cs" />
+    <Compile Include="ViewModels\PipelineScheduleViewModel.cs" />
     <!-- Phase 15: Geometry Models -->
     <Compile Include="Models\Geometry\Point3D.cs" />
     <Compile Include="Models\Geometry\BBox3D.cs" />
@@ -204,6 +208,9 @@
     <Compile Include="Services\Geometry\ParametricMeshGenerator.cs" />
     <Compile Include="Services\Geometry\FbxExportService.cs" />
     <Compile Include="Services\Geometry\GeometryRdfIntegrator.cs" />
+    <!-- Phase 29: Object Validation -->
+    <Compile Include="Models\Validation\ObjectValidationRecord.cs" />
+    <Compile Include="Services\Validation\ObjectValidationService.cs" />
     <!-- Phase 14/15: 임시 비활성화 - 플러그인 로딩 테스트
     <Compile Include="Models\Ontology\OntologyRules.cs" />
     <Compile Include="Models\Ontology\ConversionResult.cs" />

@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.0] - 2026-03-22
+
+### Phase 19: Pipeline 4D Schedule Builder
+
+**목표: SP3D Pipeline/PipeRun 기반 TimeLiner 4D 시뮬레이션 자동 생성**
+
+외부 스케줄이 없는 SP3D Pipeline 프로젝트에서 AllProperties CSV의 Pipeline/PipeRun 속성을
+기반으로 객체를 그룹핑하고, 시간을 자동 매핑하여 Selection Set + TimeLiner Task를 자동 생성합니다.
+
+#### 데이터 흐름
+```
+AllProperties CSV → Pipeline/PipeRun 추출 → 그룹핑 → Time Mapping → List<ScheduleData>
+                    (DisplayString: 제거)    (146 PL    (Hybrid 전략)     ├→ SelectionSet
+                    (자동 컬럼 감지)           334 PR)                     ├→ TimeLiner Task
+                                                                          └→ CSV Export
+```
+
+#### New Files
+- **`Models/PipelineScheduleOptions.cs`** - 옵션 모델 + 내부 그룹 모델
+  - `PipelineScheduleOptions` - 시간 매핑, 정렬, 출력 설정
+  - `TimeStrategy` enum - FixedDuration, ObjectCountBased, Hybrid
+  - `OrderingStrategy` enum - Alphabetical, SpatialLeftToRight, ByObjectCount
+  - `PipelineGroup`, `PipeRunGroup`, `PipelineObject` - 계층 그룹 모델
+  - `PipelineScheduleResult` - 빌드 결과 (통계 포함)
+- **`Services/PipelineScheduleBuilder.cs`** - 핵심 스케줄 빌드 엔진
+  - `BuildFromCsv()` - CSV에서 Pipeline Schedule 생성
+  - `ExportTimeLinerCsv()` - Navisworks Import용 CSV 내보내기
+  - CSV 자동 파싱: Pipeline/PipeRun 컬럼 자동 감지, `DisplayString:` 접두사 제거
+  - 시간 매핑: `duration = BaseDurationHours + (ObjectCount × HoursPerObject)`
+  - 공간 정렬: Geometry CSV의 CentroidX 기반 (선택)
+- **`ViewModels/PipelineScheduleViewModel.cs`** - Pipeline 4D UI ViewModel
+  - Browse/Preview/Execute/Export 커맨드
+  - 4-Step 실행: Build → ObjectMatcher → SelectionSet → TimeLiner
+  - DryRun 모드, 진행률 표시
+
+#### Modified Files
+- `Views/DXwindow.xaml` - "Pipeline 4D" TabItem 추가 (6번째 탭)
+  - 데이터 소스 선택 (AllProperties CSV + Geometry CSV)
+  - 시간 매핑 파라미터 (시작일, 기본시간, 객체당 추가시간, Pipeline 간격)
+  - 미리보기 DataGrid (Pipeline, PipeRun, Objects, Start, End, Days)
+  - 실행 버튼 (미리보기, CSV 내보내기, TimeLiner 실행)
+- `ViewModels/DXwindowViewModel.cs` - `Pipeline4D` 프로퍼티 + 초기화
+- `DXTnavis.csproj` - 신규 파일 3개 Compile Include
+
+#### 기존 인프라 재사용 (수정 없음)
+- `SelectionSetService.CreateHierarchicalSets()` → Selection Set 자동 생성
+- `TimeLinerService.CreateTasks()` → TimeLiner Task 자동 생성 + 연결
+- `ObjectMatcher.FindBySyncId()` → 객체 매칭
+- `ScheduleData` → 브릿지 모델
+
+#### 시간 계산 예시 (Hybrid 전략)
+```
+PipeRun에 18개 객체 → 8h + (18 × 0.5h) = 17h ≈ 3일 (8h/day 기준)
+PipeRun에 3개 객체  → 8h + (3 × 0.5h) = 9.5h ≈ 2일
+```
+
+#### 사용 방법
+1. "Pipeline 4D" 탭에서 AllProperties CSV 파일 선택
+2. 시간 매핑 파라미터 설정 (시작일, 기본시간, 객체당 추가시간)
+3. "미리보기" 클릭하여 스케줄 확인
+4. "TimeLiner 실행"으로 Selection Set + Task 자동 생성
+   또는 "CSV 내보내기"로 Navisworks Import용 파일 저장
+
+---
+
 ## [Unreleased] - v1.6.0
 
 ### Phase 18: 3D Mesh GLB Export (2026-02-14)

@@ -4,7 +4,7 @@
 
 **Navisworks 2025 BIM Data Extraction & 4D Automation Plugin**
 
-[![Version](https://img.shields.io/badge/Version-1.6.0-blue?style=flat-square)]()
+[![Version](https://img.shields.io/badge/Version-1.7.0-blue?style=flat-square)]()
 [![Navisworks](https://img.shields.io/badge/Navisworks-2025-FF6D00?style=flat-square&logo=autodesk&logoColor=white)](https://www.autodesk.com/products/navisworks)
 [![.NET](https://img.shields.io/badge/.NET_Framework-4.8-512BD4?style=flat-square&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 [![WPF](https://img.shields.io/badge/WPF-MVVM-0078D4?style=flat-square&logo=windows&logoColor=white)]()
@@ -15,6 +15,7 @@
 <br/>
 
 *BIM 모델에서 속성, 기하정보, 3D 메시를 추출하고 4D 시뮬레이션을 자동화하는 Navisworks 플러그인*
+*SP3D Pipeline 스케줄 자동 생성 지원*
 
 [Impact](#-impact) | [Features](#-features) | [Architecture](#-architecture) | [Quick Start](#-quick-start) | [Changelog](CHANGELOG.md)
 
@@ -48,6 +49,11 @@
 - Selection Set 수동 생성
 - TimeLiner Task 수동 연결
 
+**Pipeline 4D Schedule** - 1+ week
+- Pipeline/PipeRun 수동 분류
+- 객체별 시간 수동 계산
+- 146 Pipeline × 334 PipeRun 수동 매핑
+
 **3D Geometry Extraction** - Not possible
 - NWD에서 메시 추출 도구 없음
 - 좌표 변환 수동 계산
@@ -66,6 +72,11 @@
 - SyncID 기반 자동 매칭
 - 원클릭 Selection Set + Task 생성
 
+**Pipeline 4D Schedule** - 5 minutes
+- AllProperties CSV 자동 파싱
+- Pipeline/PipeRun 자동 그룹핑
+- 시간 자동 매핑 + TimeLiner 생성
+
 **3D Geometry Extraction** - 15 minutes
 - GLB 메시 자동 추출 (glTF 2.0)
 - LCS→WCS 좌표 자동 변환
@@ -83,6 +94,7 @@ Property Export    ████████████████████�
 Select All         ████████████████████░  445K → 5K    (99% ↓)
 Geometry Export    ████████████████████░  N/A → 15min  (NEW)
 Mesh Extract       ████████████████████░  N/A → 1-click(NEW)
+Pipeline 4D        ████████████████████░  1wk → 5min   (99% ↓)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -148,7 +160,42 @@ CSV File ──→ Schedule Parser ──→ Object Matcher ──→ Property W
 </tr>
 </table>
 
-### Scenario 3: 3D Geometry & Mesh Export
+### Scenario 3: Pipeline 4D Schedule Automation
+
+> *"SP3D Pipeline 프로젝트에서 외부 스케줄 없이 TimeLiner 4D 시뮬레이션 자동 생성"*
+
+```
+AllProperties CSV ──→ Pipeline/PipeRun 추출 ──→ 그룹핑 ──→ Time Mapping ──→ TimeLiner
+ (DisplayString:       (자동 컬럼 감지)      (146 Pipeline  (Hybrid 전략)    Task + Set
+  접두사 제거)                                 334 PipeRun)                   자동 생성
+```
+
+<table>
+<tr>
+<td align="center" width="25%">
+<h3>📂</h3>
+<b>CSV Auto-Parse</b><br/>
+<sub>Pipeline/PipeRun 자동 감지<br/>DisplayString: 접두사 제거</sub>
+</td>
+<td align="center" width="25%">
+<h3>🔗</h3>
+<b>Hierarchical Grouping</b><br/>
+<sub>Pipeline → PipeRun → Objects<br/>146 Pipelines, 334 PipeRuns</sub>
+</td>
+<td align="center" width="25%">
+<h3>⏱️</h3>
+<b>Time Mapping</b><br/>
+<sub>Hybrid: base + per-object<br/>Spatial ordering 지원</sub>
+</td>
+<td align="center" width="25%">
+<h3>🚀</h3>
+<b>1-Click Execute</b><br/>
+<sub>Selection Set + TimeLiner<br/>DryRun, CSV Export</sub>
+</td>
+</tr>
+</table>
+
+### Scenario 4: 3D Geometry & Mesh Export
 
 > *"Navisworks NWD에서 glTF 2.0 GLB 메시를 추출하여 웹 3D 뷰어와 연동"*
 
@@ -182,7 +229,7 @@ ModelItem ──→ COM Fragment ──→ GenerateSimplePrimitives() ──→ 
 </tr>
 </table>
 
-### Scenario 4: 3D Viewport Control
+### Scenario 5: 3D Viewport Control
 
 <table>
 <tr>
@@ -247,6 +294,7 @@ Navisworks는 두 가지 API를 제공합니다. DXTnavis는 용도에 맞게 �
 │ TabControl       │     │  Selection / Snapshot    │     │  Matcher    │
 │ TreeView         │     │  Tree / Export           │     │  Writer     │
 │ DataGrid         │     │  AWP4D / Schedule        │     │  Validator  │
+│                  │     │  Pipeline4D              │     │  PipelineSB │
 └──────────────────┘     └─────────────────────────┘     └─────────────┘
                                     ↕
                           ┌─────────────────┐
@@ -255,6 +303,7 @@ Navisworks는 두 가지 API를 제공합니다. DXTnavis는 용도에 맞게 �
                           │  GeometryRecord  │
                           │  BBox3D / Point3D│
                           │  ScheduleData    │
+                          │  PipelineSchedule│
                           └─────────────────┘
 ```
 
@@ -347,9 +396,9 @@ MSBuild DXTnavis.csproj /p:Configuration=Release /p:Platform=x64
 ## Development Status
 
 ```
-Phases:  ████████████████████ 18/18 Complete
-Version: v1.6.0 (2026-02-14)
-Period:  2025-12-29 ~ 2026-02-14 (48 days)
+Phases:  █████████████████████ 19/19 Complete
+Version: v1.7.0 (2026-03-22)
+Period:  2025-12-29 ~ 2026-03-22 (84 days)
 ```
 
 | Phase | Feature | Version | Status |
@@ -371,13 +420,15 @@ Period:  2025-12-29 ~ 2026-02-14 (48 days)
 | 15 | Geometry Export (BBox/Centroid) | v1.4.0 | ✅ |
 | 16 | Unified CSV Export | v1.5.0 | ✅ |
 | 17 | Spatial Connectivity | v1.5.0 | ✅ |
-| 18 | **3D Mesh GLB Export** | **v1.6.0** | ✅ |
+| 18 | 3D Mesh GLB Export | v1.6.0 | ✅ |
+| 19 | **Pipeline 4D Schedule Builder** | **v1.7.0** | ✅ |
 
 ### Release History
 
 | Version | Key Feature | Date |
 |:-------:|-------------|:----:|
-| **v1.6.0** | **3D Mesh GLB Export (glTF 2.0)** | 2026-02-14 |
+| **v1.7.0** | **Pipeline 4D Schedule Builder** | 2026-03-22 |
+| v1.6.0 | 3D Mesh GLB Export (glTF 2.0) | 2026-02-14 |
 | v1.5.0 | Unified CSV + Spatial Connectivity | 2026-02-10 |
 | v1.4.0 | Geometry Export (BBox/Centroid/RDF) | 2026-02-06 |
 | v1.3.0 | Synthetic ID Generation | 2026-02-05 |
@@ -418,6 +469,7 @@ dxtnavis/
 │   ├── ObjectMatcher.cs                  # SyncID → ModelItem 매칭
 │   ├── AWP4DValidator.cs                 # 검증 서비스
 │   ├── ScheduleCsvParser.cs              # 한영 컬럼 매핑 파서
+│   ├── PipelineScheduleBuilder.cs       # Pipeline 4D 스케줄 빌더
 │   ├── UnifiedCsvExporter.cs             # 22-col 통합 CSV
 │   ├── Geometry/
 │   │   ├── GeometryExtractor.cs          # BBox 추출 + 배치 처리
@@ -438,6 +490,7 @@ dxtnavis/
 │   ├── DXwindowViewModel.Export.cs       # Export + Full Pipeline
 │   ├── AWP4DViewModel.cs                 # AWP 4D
 │   ├── ScheduleBuilderViewModel.cs       # Schedule Builder
+│   ├── PipelineScheduleViewModel.cs     # Pipeline 4D Schedule
 │   └── ObjectGroupViewModel.cs           # 객체 그룹화
 ├── Models/
 │   ├── ObjectGroupModel.cs               # 그룹 모델 (v1.0.0)
@@ -445,6 +498,7 @@ dxtnavis/
 │   ├── FilterOption.cs                   # 필터 옵션
 │   ├── ScheduleData.cs                   # 스케줄 데이터
 │   ├── DateMode.cs                       # DateMode enum
+│   ├── PipelineScheduleOptions.cs       # Pipeline 4D 옵션/모델
 │   ├── Geometry/
 │   │   ├── Point3D.cs                    # 3D 좌표
 │   │   ├── BBox3D.cs                     # Bounding Box
@@ -453,7 +507,7 @@ dxtnavis/
 │       ├── AdjacencyRecord.cs            # 인접 관계
 │       └── ConnectedGroup.cs             # 연결 그룹
 ├── Views/
-│   └── DXwindow.xaml                     # 메인 UI (5 Tabs)
+│   └── DXwindow.xaml                     # 메인 UI (6 Tabs)
 ├── Resources/Ontology/
 │   └── dxtnavis-rules.yaml              # BSO 온톨로지 규칙
 └── docs/
@@ -504,6 +558,6 @@ dxtnavis/
 
 ---
 
-<sub>Last Updated: 2026-02-14 | v1.6.0 | 18 Phases Complete</sub>
+<sub>Last Updated: 2026-03-22 | v1.7.0 | 19 Phases Complete</sub>
 
 </div>

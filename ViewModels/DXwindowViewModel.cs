@@ -94,6 +94,12 @@ namespace DXTnavis.ViewModels
         public ScheduleBuilderViewModel ScheduleBuilder { get; }
 
         /// <summary>
+        /// Pipeline 4D Schedule ViewModel
+        /// SP3D Pipeline/PipeRun 기반 자동 스케줄 생성
+        /// </summary>
+        public PipelineScheduleViewModel Pipeline4D { get; }
+
+        /// <summary>
         /// Ontology ViewModel (Phase 14)
         /// 타입을 object로 변경하여 OntologyViewModel 어셈블리 지연 로딩
         /// XAML 바인딩은 FallbackValue로 처리됨
@@ -668,6 +674,9 @@ namespace DXTnavis.ViewModels
             ScheduleBuilder = new ScheduleBuilderViewModel(
                 () => GetSelectedHierarchicalRecords(),
                 null);
+
+            // Pipeline 4D Schedule 초기화
+            Pipeline4D = new PipelineScheduleViewModel();
 
             // Phase 14: Ontology ViewModel 초기화 (임시 비활성화 - 플러그인 로딩 테스트)
             // TODO: dotNetRdf/Neo4j 어셈블리 로딩 문제 해결 후 활성화

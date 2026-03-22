@@ -1284,7 +1284,165 @@
                 </ScrollViewer>
             </TabItem>
 
-            <!-- 탭 5: Ontology (Phase 14) -->
+            <!-- 탭 5: Pipeline 4D -->
+            <TabItem Header="Pipeline 4D">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="12">
+                        <TextBlock Text="Pipeline 4D Schedule" FontSize="16" FontWeight="Bold"
+                                   Foreground="#0078D4" Margin="0,0,0,12"/>
+
+                        <!-- 데이터 소스 -->
+                        <Border Background="#F8F9FA" Padding="12" Margin="0,0,0,12" CornerRadius="4">
+                            <StackPanel>
+                                <TextBlock Text="데이터 소스" FontWeight="Bold" Margin="0,0,0,10"/>
+
+                                <!-- AllProperties CSV -->
+                                <TextBlock Text="AllProperties CSV (필수)" FontSize="11" Foreground="#666" Margin="0,0,0,4"/>
+                                <DockPanel Margin="0,0,0,8">
+                                    <Button Content="찾아보기" DockPanel.Dock="Right"
+                                            Command="{Binding Pipeline4D.BrowseCsvCommand}"
+                                            Width="70" Height="26" Margin="6,0,0,0"/>
+                                    <TextBox Text="{Binding Pipeline4D.CsvPath, FallbackValue=''}" IsReadOnly="True"
+                                             Height="26" Padding="6,4" Background="#F0F0F0"/>
+                                </DockPanel>
+
+                                <!-- Geometry CSV (선택) -->
+                                <TextBlock Text="Geometry CSV (선택, 공간정렬용)" FontSize="11" Foreground="#666" Margin="0,0,0,4"/>
+                                <DockPanel Margin="0,0,0,4">
+                                    <Button Content="찾아보기" DockPanel.Dock="Right"
+                                            Command="{Binding Pipeline4D.BrowseGeometryCsvCommand}"
+                                            Width="70" Height="26" Margin="6,0,0,0"/>
+                                    <TextBox Text="{Binding Pipeline4D.GeometryCsvPath, FallbackValue=''}" IsReadOnly="True"
+                                             Height="26" Padding="6,4" Background="#F0F0F0"/>
+                                </DockPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 시간 매핑 옵션 -->
+                        <Border Background="#F8F9FA" Padding="12" Margin="0,0,0,12" CornerRadius="4">
+                            <StackPanel>
+                                <TextBlock Text="시간 매핑" FontWeight="Bold" Margin="0,0,0,10"/>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="32"/>
+                                        <RowDefinition Height="32"/>
+                                        <RowDefinition Height="32"/>
+                                        <RowDefinition Height="32"/>
+                                        <RowDefinition Height="32"/>
+                                        <RowDefinition Height="32"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Text="시작일" VerticalAlignment="Center" Grid.Row="0"/>
+                                    <DatePicker SelectedDate="{Binding Pipeline4D.StartDate}" Height="26" Grid.Row="0" Grid.Column="1"/>
+
+                                    <TextBlock Text="기본 시간(h)" VerticalAlignment="Center" Grid.Row="1"/>
+                                    <TextBox Text="{Binding Pipeline4D.BaseDuration, UpdateSourceTrigger=PropertyChanged}"
+                                             Height="26" Padding="6,4" Grid.Row="1" Grid.Column="1"
+                                             PreviewKeyDown="TextBox_PreviewKeyDown" GotFocus="TextBox_GotFocus"/>
+
+                                    <TextBlock Text="객체당 추가(h)" VerticalAlignment="Center" Grid.Row="2"/>
+                                    <TextBox Text="{Binding Pipeline4D.PerObjectHours, UpdateSourceTrigger=PropertyChanged}"
+                                             Height="26" Padding="6,4" Grid.Row="2" Grid.Column="1"
+                                             PreviewKeyDown="TextBox_PreviewKeyDown" GotFocus="TextBox_GotFocus"/>
+
+                                    <TextBlock Text="Pipeline 간격(일)" VerticalAlignment="Center" Grid.Row="3"/>
+                                    <TextBox Text="{Binding Pipeline4D.GapDays, UpdateSourceTrigger=PropertyChanged}"
+                                             Height="26" Padding="6,4" Grid.Row="3" Grid.Column="1"
+                                             PreviewKeyDown="TextBox_PreviewKeyDown" GotFocus="TextBox_GotFocus"/>
+
+                                    <TextBlock Text="시간 전략" VerticalAlignment="Center" Grid.Row="4"/>
+                                    <ComboBox ItemsSource="{Binding Pipeline4D.TimeStrategies}"
+                                              SelectedItem="{Binding Pipeline4D.SelectedTimeStrategy}"
+                                              Height="26" Grid.Row="4" Grid.Column="1"/>
+
+                                    <TextBlock Text="정렬 전략" VerticalAlignment="Center" Grid.Row="5"/>
+                                    <ComboBox ItemsSource="{Binding Pipeline4D.OrderingStrategies}"
+                                              SelectedItem="{Binding Pipeline4D.SelectedOrderingStrategy}"
+                                              Height="26" Grid.Row="5" Grid.Column="1"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 미리보기 DataGrid -->
+                        <Border Background="White" BorderBrush="#DDDDDD" BorderThickness="1"
+                                Padding="1" CornerRadius="4" MaxHeight="250" Margin="0,0,0,12">
+                            <DataGrid ItemsSource="{Binding Pipeline4D.PreviewItems}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      CanUserAddRows="False"
+                                      CanUserDeleteRows="False"
+                                      RowHeight="24"
+                                      HeadersVisibility="Column"
+                                      GridLinesVisibility="Horizontal"
+                                      HorizontalGridLinesBrush="#EEEEEE"
+                                      AlternatingRowBackground="#FAFAFA"
+                                      EnableRowVirtualization="True">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Pipeline" Binding="{Binding Pipeline}" Width="80"/>
+                                    <DataGridTextColumn Header="PipeRun" Binding="{Binding PipeRun}" Width="*"/>
+                                    <DataGridTextColumn Header="Objects" Binding="{Binding ObjectCount}" Width="55"/>
+                                    <DataGridTextColumn Header="Start" Binding="{Binding Start, StringFormat='yyyy-MM-dd'}" Width="80"/>
+                                    <DataGridTextColumn Header="End" Binding="{Binding End, StringFormat='yyyy-MM-dd'}" Width="80"/>
+                                    <DataGridTextColumn Header="Days" Binding="{Binding DurationDays}" Width="40"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+
+                        <!-- 실행 버튼 -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,8">
+                            <CheckBox Content="DryRun" IsChecked="{Binding Pipeline4D.IsDryRun}"
+                                      VerticalAlignment="Center" Margin="0,0,12,0"
+                                      ToolTip="체크하면 실제 실행 없이 결과를 미리 확인합니다"/>
+                            <Button Content="미리보기"
+                                    Style="{StaticResource FilterButton}"
+                                    Command="{Binding Pipeline4D.PreviewCommand}"
+                                    Width="80" Height="28" Margin="0,0,4,0"
+                                    ToolTip="CSV 파싱 및 스케줄 미리보기"/>
+                            <Button Content="CSV 내보내기"
+                                    Style="{StaticResource SuccessButton}"
+                                    Command="{Binding Pipeline4D.ExportCsvCommand}"
+                                    Width="90" Height="28" Margin="0,0,4,0"
+                                    ToolTip="Navisworks TimeLiner Import용 CSV 파일 내보내기"/>
+                            <Button Content="TimeLiner 실행"
+                                    Background="#0078D4" Foreground="White"
+                                    Command="{Binding Pipeline4D.ExecuteCommand}"
+                                    Width="100" Height="28"
+                                    ToolTip="Selection Set + TimeLiner Task 자동 생성"/>
+                        </StackPanel>
+
+                        <!-- 진행률 -->
+                        <Grid Visibility="{Binding Pipeline4D.IsExecuting, Converter={StaticResource BoolToVisibilityConverter}}"
+                              Margin="0,0,0,8">
+                            <ProgressBar Value="{Binding Pipeline4D.Progress}"
+                                         Minimum="0" Maximum="100"
+                                         Height="6" Background="#E3F2FD" Foreground="#0078D4"/>
+                        </Grid>
+
+                        <!-- 상태 메시지 -->
+                        <TextBlock Text="{Binding Pipeline4D.StatusMessage}" Foreground="Gray" FontSize="11"
+                                   TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+                        <!-- 사용법 안내 -->
+                        <Border Background="#F0F0F0" Padding="10" Margin="0,4,0,0" CornerRadius="4">
+                            <StackPanel>
+                                <TextBlock Text="Pipeline 4D 사용법" FontWeight="Bold" Margin="0,0,0,6"/>
+                                <TextBlock Text="1. AllProperties CSV 파일을 선택 (Pipeline/PipeRun 컬럼 필요)" FontSize="10" Foreground="#666"/>
+                                <TextBlock Text="2. 시간 매핑 파라미터 설정 (시작일, 기본시간, 객체당 추가시간)" FontSize="10" Foreground="#666"/>
+                                <TextBlock Text="3. '미리보기'로 스케줄 확인" FontSize="10" Foreground="#666"/>
+                                <TextBlock Text="4. 'TimeLiner 실행'으로 Selection Set + Task 자동 생성" FontSize="10" Foreground="#666"/>
+                                <TextBlock Text="   또는 'CSV 내보내기'로 Navisworks Import용 파일 생성" FontSize="10" Foreground="#666"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- 탭 6: Ontology (Phase 14) -->
             <TabItem Header="🧠 Ontology">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="10">
                     <StackPanel>
