@@ -41,6 +41,7 @@ docs/*
 !docs/tech-specs/
 !docs/phases/
 !docs/progress/
+!docs/guides/
 !docs/_INDEX.md
 
 # Scripts (internal use)

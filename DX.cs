@@ -1,4 +1,6 @@
 ﻿using System;
+using System.IO;
+using System.Reflection;
 using System.Windows;
 using Autodesk.Navisworks.Api.Plugins;
 
@@ -18,6 +20,34 @@ namespace DXTnavis
         private static Views.DXwindow _windowInstance;
 
         /// <summary>
+        /// AssemblyResolve 등록 여부
+        /// </summary>
+        private static bool _resolverRegistered;
+
+        /// <summary>
+        /// 플러그인 폴더에서 종속 어셈블리를 찾는 핸들러 등록
+        /// Navisworks CLR은 플러그인 하위폴더를 자동으로 probing하지 않으므로 필요
+        /// </summary>
+        private static void EnsureAssemblyResolver()
+        {
+            if (_resolverRegistered) return;
+            _resolverRegistered = true;
+
+            string pluginDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+
+            AppDomain.CurrentDomain.AssemblyResolve += (sender, args) =>
+            {
+                string assemblyName = new AssemblyName(args.Name).Name + ".dll";
+                string assemblyPath = Path.Combine(pluginDir, assemblyName);
+
+                if (File.Exists(assemblyPath))
+                    return Assembly.LoadFrom(assemblyPath);
+
+                return null;
+            };
+        }
+
+        /// <summary>
         /// 플러그인 실행 메서드
         /// 리본 버튼 클릭 시 호출됩니다.
         /// </summary>
@@ -25,6 +55,7 @@ namespace DXTnavis
         /// <returns>실행 결과 코드</returns>
         public override int Execute(params string[] parameters)
         {
+            EnsureAssemblyResolver();
             try
             {
                 // DEBUG: 개발 중에는 항상 새 창 생성 (UI 업데이트 테스트용)

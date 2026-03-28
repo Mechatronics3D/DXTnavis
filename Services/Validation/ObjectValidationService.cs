@@ -115,6 +115,15 @@ namespace DXTnavis.Services.Validation
                     record.GlbSizeBytes = fi.Exists ? fi.Length : 0L;
                 }
 
+                // HasMesh: GLB 파일 존재 여부 (= GlbExists, box_placeholder 포함)
+                record.HasMesh = record.GlbExists;
+
+                // HasRealMesh: 실제 geometry 기반 메시만 true (full_mesh, fbx_supplemented, line_mesh)
+                string mq = record.MeshQuality ?? "";
+                record.HasRealMesh = record.GlbExists &&
+                    (mq == "full_mesh" || mq == "gap_supplemented" || mq == "partial_retry_success" ||
+                     mq == "fbx_supplemented" || mq == "line_mesh");
+
                 // 최종 판정
                 record.ComputeVerdict();
 
@@ -452,9 +461,16 @@ namespace DXTnavis.Services.Validation
             sb.AppendFormat("  HasTriangles=true & TessResult=failure: {0:N0} ← 조사 대상", hasTrianglesNoMesh);
             Debug.WriteLine(sb.ToString());
 
-            OnStatusChanged(string.Format("[Validation] 판정 완료 — FAIL_NO_EXTRACT: {0}개, WARN_BOX: {1}개",
+            // Phase 31: GLB 무결성 verdict도 로그에 포함
+            int glbMissing = verdictCounts.ContainsKey("FAIL_GLB_MISSING") ? verdictCounts["FAIL_GLB_MISSING"] : 0;
+            int glbEmpty = verdictCounts.ContainsKey("FAIL_GLB_EMPTY") ? verdictCounts["FAIL_GLB_EMPTY"] : 0;
+            int fbxBatchOnly = verdictCounts.ContainsKey("WARN_FBX_BATCH_ONLY") ? verdictCounts["WARN_FBX_BATCH_ONLY"] : 0;
+
+            OnStatusChanged(string.Format(
+                "[Validation] 판정 완료 — FAIL_NO_EXTRACT: {0}개, WARN_BOX: {1}개, FAIL_GLB_MISSING: {2}개, FAIL_GLB_EMPTY: {3}개, WARN_FBX_BATCH_ONLY: {4}개",
                 verdictCounts.ContainsKey("FAIL_NO_EXTRACT") ? verdictCounts["FAIL_NO_EXTRACT"] : 0,
-                verdictCounts.ContainsKey("WARN_BOX") ? verdictCounts["WARN_BOX"] : 0));
+                verdictCounts.ContainsKey("WARN_BOX") ? verdictCounts["WARN_BOX"] : 0,
+                glbMissing, glbEmpty, fbxBatchOnly));
         }
 
         #endregion

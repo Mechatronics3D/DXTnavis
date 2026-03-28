@@ -12,6 +12,7 @@
 | Category | Document | Description |
 |----------|----------|-------------|
 | **User Manual** | [USER-MANUAL.md](USER-MANUAL.md) | 전체 기능 사용 가이드 (v1.1.0) |
+| **Pipeline 4D Guide** | [pipeline-4d-developer-guide](guides/pipeline-4d-developer-guide.md) | Pipeline 4D 코드 구조 및 동작 원리 |
 | **Overview** | [CLAUDE.md](../CLAUDE.md) | Project context & quick ref |
 | **Changelog** | [CHANGELOG.md](../CHANGELOG.md) | Version history |
 | **README** | [README.md](../README.md) | Public documentation |

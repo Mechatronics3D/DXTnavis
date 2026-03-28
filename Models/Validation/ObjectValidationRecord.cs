@@ -105,6 +105,12 @@ namespace DXTnavis.Models.Validation
         /// <summary>GLB 파일 크기 (bytes, 0 if not exists)</summary>
         public long GlbSizeBytes { get; set; }
 
+        /// <summary>GLB 파일 존재 여부 (= GlbExists, box_placeholder 포함)</summary>
+        public bool HasMesh { get; set; }
+
+        /// <summary>실제 geometry 기반 메시 존재 여부 (full_mesh, fbx_supplemented, line_mesh만 true)</summary>
+        public bool HasRealMesh { get; set; }
+
         #endregion
 
         #region H. 최종 판정
@@ -112,7 +118,8 @@ namespace DXTnavis.Models.Validation
         /// <summary>
         /// OK_MESH / OK_LINE_MESH / OK_FBX / WARN_BOX /
         /// SKIP_CONTAINER / SKIP_NO_GEOMETRY / SKIP_HIDDEN /
-        /// FAIL_NO_EXTRACT
+        /// FAIL_NO_EXTRACT / FAIL_GLB_MISSING / FAIL_GLB_EMPTY /
+        /// WARN_FBX_BATCH_ONLY
         /// </summary>
         public string Verdict { get; set; }
 
@@ -128,7 +135,7 @@ namespace DXTnavis.Models.Validation
             "ContainerStatus," +
             "TessResult,TessFailureReason,MeshQuality,VertexCount,TriangleCount," +
             "AdjacencyCount,GroupId," +
-            "GlbExists,GlbSizeBytes," +
+            "GlbExists,GlbSizeBytes,HasMesh,HasRealMesh," +
             "Verdict";
 
         public string ToCsvRow()
@@ -141,8 +148,8 @@ namespace DXTnavis.Models.Validation
                 "{20}," +
                 "{21},{22},{23},{24},{25}," +
                 "{26},{27}," +
-                "{28},{29}," +
-                "{30}",
+                "{28},{29},{30},{31}," +
+                "{32}",
                 ObjectId.ToString("D"),
                 EscapeCsv(DisplayName),
                 EscapeCsv(ClassDisplayName),
@@ -173,6 +180,8 @@ namespace DXTnavis.Models.Validation
                 EscapeCsv(GroupId ?? ""),
                 GlbExists,
                 GlbSizeBytes,
+                HasMesh,
+                HasRealMesh,
                 EscapeCsv(Verdict ?? ""));
         }
 
@@ -214,25 +223,42 @@ namespace DXTnavis.Models.Validation
                 return;
             }
 
-            // Mesh 성공 케이스
-            if (MeshQuality == "full_mesh")
+            // ── Phase 31: MeshQuality 기반 1차 판정 ──
+            string preliminaryVerdict = null;
+
+            if (MeshQuality == "full_mesh" || MeshQuality == "gap_supplemented" || MeshQuality == "partial_retry_success")
+                preliminaryVerdict = "OK_MESH";
+            else if (MeshQuality == "line_mesh")
+                preliminaryVerdict = "OK_LINE_MESH";
+            else if (MeshQuality == "fbx_supplemented")
+                preliminaryVerdict = "OK_FBX";
+
+            // ── Phase 31: GLB 물리 파일 무결성 검증 (OK 판정에만 적용) ──
+            if (preliminaryVerdict != null)
             {
-                Verdict = "OK_MESH";
-                return;
-            }
-            if (MeshQuality == "line_mesh")
-            {
-                Verdict = "OK_LINE_MESH";
-                return;
-            }
-            if (MeshQuality == "fbx_supplemented")
-            {
-                Verdict = "OK_FBX";
-                return;
-            }
-            if (MeshQuality == "gap_supplemented" || MeshQuality == "partial_retry_success")
-            {
-                Verdict = "OK_MESH";
+                // GLB 검증이 수행된 경우에만 (meshDir가 전달된 경우)
+                if (GlbSizeBytes >= 0 && !string.IsNullOrEmpty(MeshQuality))
+                {
+                    if (!GlbExists)
+                    {
+                        Verdict = "FAIL_GLB_MISSING";
+                        return;
+                    }
+                    if (GlbSizeBytes == 0)
+                    {
+                        Verdict = "FAIL_GLB_EMPTY";
+                        return;
+                    }
+                }
+
+                // fbx_supplemented 추가 검증: 개별 GLB에 실제 mesh가 있는지
+                if (preliminaryVerdict == "OK_FBX" && GlbExists && VertexCount == 0 && TriangleCount == 0)
+                {
+                    Verdict = "WARN_FBX_BATCH_ONLY";
+                    return;
+                }
+
+                Verdict = preliminaryVerdict;
                 return;
             }
 

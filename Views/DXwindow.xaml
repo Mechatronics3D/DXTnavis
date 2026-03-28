@@ -578,109 +578,60 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- CSV 내보내기 버튼 (4종 버튼 체계) -->
+                    <!-- Main Export Buttons -->
                     <StackPanel Grid.Row="0" Grid.Column="0">
-                        <!-- Row 1: All (전체 모델) -->
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                            <TextBlock Text="All:" VerticalAlignment="Center" Width="60" FontWeight="SemiBold" FontSize="11"/>
-                            <Button Content="📊 Properties"
+                            <Button Content="📦 Full Export"
+                                    Style="{StaticResource ActionButton}"
+                                    Background="#1565C0" Foreground="White"
+                                    Command="{Binding ExportFullPipelineCommand}"
+                                    ToolTip="통합 출력: AllProperties + Unified CSV + Geometry + Mesh GLB + Adjacency"
+                                    Width="130" FontWeight="Bold"/>
+                            <Button Content="📊 AllProperties"
                                     Style="{StaticResource ActionButton}"
                                     Command="{Binding ExportAllPropertiesCommand}"
-                                    ToolTip="전체 모델의 모든 속성을 CSV로 내보내기"
-                                    Width="100"/>
-                            <Button Content="📁 Hierarchy"
-                                    Style="{StaticResource SuccessButton}"
-                                    Command="{Binding ExportAllHierarchyCommand}"
-                                    ToolTip="전체 모델의 계층 구조를 CSV/JSON으로 내보내기"
-                                    Width="100"/>
+                                    ToolTip="전체 모델의 모든 속성을 CSV로 내보내기 (Pipeline 4D 입력용)"
+                                    Width="120" Margin="4,0,0,0"/>
+                            <Button Content="📊 Refined XLSX"
+                                    Style="{StaticResource ActionButton}"
+                                    Background="#217346" Foreground="White"
+                                    Command="{Binding ExportRefinedXlsxCommand}"
+                                    ToolTip="Refining_ObjectID 형식의 서식 XLSX 내보내기 (5개 시트, 색상 코딩)"
+                                    Width="120" Margin="4,0,0,0"/>
                         </StackPanel>
-                        <!-- Row 2: Selection (선택 객체) -->
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="Selection:" VerticalAlignment="Center" Width="60" FontWeight="SemiBold" FontSize="11"/>
-                            <Button Content="📊 Properties"
-                                    Style="{StaticResource ActionButton}"
-                                    Command="{Binding ExportSelectionPropertiesCommand}"
-                                    ToolTip="선택된 객체의 속성을 CSV로 내보내기 (Navisworks에서 객체 선택 필요)"
-                                    Width="100"/>
-                            <Button Content="📁 Hierarchy"
-                                    Style="{StaticResource SuccessButton}"
-                                    Command="{Binding ExportSelectionHierarchyCommand}"
-                                    ToolTip="선택된 객체의 계층 구조를 CSV/JSON으로 내보내기"
-                                    Width="100"/>
-                        </StackPanel>
-                        <!-- Row 3: Geometry Export (Phase 15) -->
-                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                            <TextBlock Text="Geometry:" VerticalAlignment="Center" Width="60" FontWeight="SemiBold" FontSize="11"/>
-                            <Button Content="🔲 All BBox"
-                                    Style="{StaticResource ActionButton}"
-                                    Background="#9C27B0"
-                                    Command="{Binding ExportGeometryCommand}"
-                                    ToolTip="전체 모델의 BoundingBox를 manifest.json으로 내보내기 (3D 뷰어 연동용)"
-                                    Width="100"/>
-                            <Button Content="🔲 Selection"
-                                    Style="{StaticResource ActionButton}"
-                                    Background="#7B1FA2"
-                                    Command="{Binding ExportSelectionGeometryCommand}"
-                                    ToolTip="선택된 객체의 BoundingBox를 manifest.json으로 내보내기"
-                                    Width="100"/>
-                        </StackPanel>
-                        <!-- Row 4: Unified CSV Export (Phase 16 - Ontology 연동) -->
-                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                            <TextBlock Text="Ontology:" VerticalAlignment="Center" Width="60" FontWeight="SemiBold" FontSize="11"/>
-                            <Button Content="📊 All Unified"
-                                    Style="{StaticResource ActionButton}"
-                                    Background="#E65100"
-                                    Command="{Binding ExportUnifiedCsvCommand}"
-                                    ToolTip="Hierarchy + Geometry 통합 CSV (bim-ontology 연동용)"
-                                    Width="100"/>
-                            <Button Content="📊 Selection"
-                                    Style="{StaticResource ActionButton}"
-                                    Background="#BF360C"
-                                    Command="{Binding ExportSelectionUnifiedCsvCommand}"
-                                    ToolTip="선택 객체의 Hierarchy + Geometry 통합 CSV"
-                                    Width="100"/>
-                        </StackPanel>
-                        <!-- Row 5: Full Pipeline Export (Unified + Geometry + Mesh + Spatial) -->
-                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                            <TextBlock Text="Pipeline:" VerticalAlignment="Center" Width="60" FontWeight="SemiBold" FontSize="11"/>
-                            <Button Content="📦 Export All"
-                                    Style="{StaticResource ActionButton}"
-                                    Background="#1565C0"
-                                    Foreground="White"
-                                    Command="{Binding ExportFullPipelineCommand}"
-                                    ToolTip="통합 출력: Unified CSV + Geometry + Mesh GLB + Adjacency + Groups + TTL"
-                                    Width="130" FontWeight="Bold"/>
-                            <Button Content="🧊 Test Mesh"
-                                    Style="{StaticResource ActionButton}"
-                                    Background="#6A1B9A"
-                                    Foreground="White"
-                                    Command="{Binding ExportTestMeshCommand}"
-                                    ToolTip="선택 객체 Mesh GLB 추출 테스트 (GLB + OBJ)"
-                                    Width="70" Margin="5,0,0,0"/>
-                            <Button Content="🔬 Diag"
-                                    Style="{StaticResource ActionButton}"
-                                    Background="#BF360C"
-                                    Foreground="White"
-                                    Command="{Binding ExportMeshDiagnosticCommand}"
-                                    ToolTip="선택 객체 계층 Mesh 진단 CSV (fragment/tessellation 분석)"
-                                    Width="50" Margin="3,0,0,0"/>
-                        </StackPanel>
-                        <!-- Row 6: Spatial Adjacency Export (Phase 17 - 개별) -->
-                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                            <TextBlock Text="Spatial:" VerticalAlignment="Center" Width="60" FontWeight="SemiBold" FontSize="11"/>
-                            <Button Content="🔗 All Adjacency"
-                                    Style="{StaticResource ActionButton}"
-                                    Background="#00695C"
-                                    Command="{Binding ExportAdjacencyCommand}"
-                                    ToolTip="전체 모델 BBox 인접성 분석 (adjacency.csv + connected_groups.csv + TTL)"
-                                    Width="100"/>
-                            <Button Content="🔗 Selection"
-                                    Style="{StaticResource ActionButton}"
-                                    Background="#004D40"
-                                    Command="{Binding ExportSelectionAdjacencyCommand}"
-                                    ToolTip="선택 객체의 BBox 인접성 분석"
-                                    Width="100"/>
-                        </StackPanel>
+                        <!-- Advanced Export (collapsed by default) -->
+                        <Expander Header="▶ Advanced Export" IsExpanded="False" Margin="0,4,0,0" FontSize="10">
+                            <StackPanel Margin="4,4,0,0">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
+                                    <TextBlock Text="Selection:" Width="55" FontSize="10" VerticalAlignment="Center"/>
+                                    <Button Content="Properties" Style="{StaticResource FilterButton}"
+                                            Command="{Binding ExportSelectionPropertiesCommand}" Width="70" FontSize="10" Padding="4,3"/>
+                                    <Button Content="Hierarchy" Style="{StaticResource FilterButton}"
+                                            Command="{Binding ExportSelectionHierarchyCommand}" Width="65" FontSize="10" Padding="4,3"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
+                                    <TextBlock Text="Geometry:" Width="55" FontSize="10" VerticalAlignment="Center"/>
+                                    <Button Content="All BBox" Style="{StaticResource FilterButton}"
+                                            Command="{Binding ExportGeometryCommand}" Width="70" FontSize="10" Padding="4,3" Background="#9C27B0"/>
+                                    <Button Content="Selection" Style="{StaticResource FilterButton}"
+                                            Command="{Binding ExportSelectionGeometryCommand}" Width="65" FontSize="10" Padding="4,3" Background="#7B1FA2"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
+                                    <TextBlock Text="Spatial:" Width="55" FontSize="10" VerticalAlignment="Center"/>
+                                    <Button Content="Adjacency" Style="{StaticResource FilterButton}"
+                                            Command="{Binding ExportAdjacencyCommand}" Width="70" FontSize="10" Padding="4,3" Background="#00695C"/>
+                                    <Button Content="Selection" Style="{StaticResource FilterButton}"
+                                            Command="{Binding ExportSelectionAdjacencyCommand}" Width="65" FontSize="10" Padding="4,3" Background="#004D40"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Debug:" Width="55" FontSize="10" VerticalAlignment="Center"/>
+                                    <Button Content="Test Mesh" Style="{StaticResource FilterButton}"
+                                            Command="{Binding ExportTestMeshCommand}" Width="70" FontSize="10" Padding="4,3" Background="#6A1B9A"/>
+                                    <Button Content="Diag" Style="{StaticResource FilterButton}"
+                                            Command="{Binding ExportMeshDiagnosticCommand}" Width="50" FontSize="10" Padding="4,3" Background="#BF360C"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Expander>
                     </StackPanel>
 
                     <!-- 3D 선택 버튼 (Phase 3) -->
@@ -756,536 +707,8 @@
         <!-- ═══════════════════════════════════════════════════════════════ -->
         <TabControl Grid.Column="4" Background="White">
 
-            <!-- 탭 1: Search Set 생성 -->
-            <TabItem Header="🔍 Search Set">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="12">
-                        <TextBlock Text="Search Set 생성" Style="{StaticResource SectionTitle}"/>
-                        <TextBlock Text="필터링된 데이터로 Navisworks 검색 세트 생성"
-                                   Style="{StaticResource LabelStyle}" Margin="0,0,0,15"/>
-
-                        <!-- 선택 상태 -->
-                        <Border Background="#E6F3FF" BorderBrush="#0078D4" BorderThickness="1"
-                                Padding="12" Margin="0,0,0,15" CornerRadius="4">
-                            <StackPanel>
-                                <TextBlock Text="선택된 항목" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                                <TextBlock Text="{Binding SelectedPropertiesCount, FallbackValue='0개 선택됨'}"
-                                           FontSize="18" FontWeight="Bold" Foreground="#0078D4"/>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- 폴더 이름 -->
-                        <TextBlock Text="폴더 이름" Style="{StaticResource LabelStyle}"/>
-                        <TextBox Text="{Binding FolderName, UpdateSourceTrigger=PropertyChanged}"
-                                 Height="30" Margin="0,0,0,12" Padding="8,5"
-                                 InputMethod.IsInputMethodEnabled="True"
-                                 PreviewKeyDown="TextBox_PreviewKeyDown"
-                                 GotFocus="TextBox_GotFocus"/>
-
-                        <!-- 세트 이름 -->
-                        <TextBlock Text="세트 이름" Style="{StaticResource LabelStyle}"/>
-                        <TextBox Text="{Binding NewSetName, UpdateSourceTrigger=PropertyChanged}"
-                                 Height="30" Margin="0,0,0,15" Padding="8,5"
-                                 InputMethod.IsInputMethodEnabled="True"
-                                 PreviewKeyDown="TextBox_PreviewKeyDown"
-                                 GotFocus="TextBox_GotFocus"/>
-
-                        <!-- 선택된 속성 미리보기 -->
-                        <TextBlock Text="선택된 속성 미리보기" Style="{StaticResource LabelStyle}"/>
-                        <Border Background="#F8F9FA" BorderBrush="#DDDDDD" BorderThickness="1"
-                                Padding="10" Margin="0,0,0,15" MaxHeight="200">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <TextBlock Text="{Binding SelectedPropertyInfo, FallbackValue='(Hierarchy Data에서 항목을 선택하세요)'}"
-                                           TextWrapping="Wrap" FontSize="11" Foreground="#666666"/>
-                            </ScrollViewer>
-                        </Border>
-
-                        <!-- 생성 버튼 -->
-                        <Button Content="🔍 Search Set 생성"
-                                Style="{StaticResource SuccessButton}"
-                                HorizontalAlignment="Stretch"
-                                Height="40"
-                                Command="{Binding CreateSearchSetCommand}"/>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-
-            <!-- 탭 2: CSV Viewer (v0.5.0) -->
-            <TabItem Header="📊 CSV Viewer">
-                <Grid Margin="8">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-
-                    <!-- 헤더 -->
-                    <StackPanel Grid.Row="0" Margin="0,0,0,8">
-                        <TextBlock Text="CSV Viewer" Style="{StaticResource SectionTitle}"/>
-                        <TextBlock Text="{Binding CsvViewer.FileName, FallbackValue='(No file loaded)'}"
-                                   Style="{StaticResource LabelStyle}" FontStyle="Italic"/>
-                    </StackPanel>
-
-                    <!-- 로드/필터 컨트롤 -->
-                    <Border Grid.Row="1" Background="#E8F4FD" Padding="8" Margin="0,0,0,8" CornerRadius="4">
-                        <StackPanel>
-                            <!-- 파일 로드 버튼 -->
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                <Button Content="📂 Load CSV"
-                                        Style="{StaticResource ActionButton}"
-                                        Command="{Binding CsvViewer.LoadCsvCommand}"
-                                        Width="90"/>
-                                <Button Content="✕ Clear"
-                                        Style="{StaticResource FilterButton}"
-                                        Command="{Binding CsvViewer.ClearDataCommand}"
-                                        Width="60"/>
-                                <Button Content="📤 Export"
-                                        Style="{StaticResource SuccessButton}"
-                                        Command="{Binding CsvViewer.ExportFilteredCommand}"
-                                        ToolTip="Export filtered data to new CSV"
-                                        Width="70"/>
-                            </StackPanel>
-
-                            <!-- 필터 -->
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="80"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-
-                                <TextBlock Grid.Column="0" Text="Filter:" VerticalAlignment="Center"
-                                           FontWeight="SemiBold" Margin="0,0,6,0"/>
-                                <ComboBox Grid.Column="1"
-                                          ItemsSource="{Binding CsvViewer.ColumnNames}"
-                                          SelectedItem="{Binding CsvViewer.SelectedFilterColumn}"
-                                          Height="26" Margin="0,0,4,0" FontSize="10"/>
-                                <TextBox Grid.Column="2"
-                                         Text="{Binding CsvViewer.FilterText, UpdateSourceTrigger=PropertyChanged}"
-                                         Height="26" Padding="6,4"
-                                         VerticalContentAlignment="Center"
-                                         InputMethod.IsInputMethodEnabled="True"
-                                         PreviewKeyDown="TextBox_PreviewKeyDown"
-                                         GotFocus="TextBox_GotFocus"/>
-                                <Button Grid.Column="3" Content="✕"
-                                        Width="26" Height="26" Margin="4,0,0,0"
-                                        Command="{Binding CsvViewer.ClearFilterCommand}"
-                                        ToolTip="Clear filter"/>
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- DataGrid -->
-                    <Border Grid.Row="2" BorderBrush="#DDDDDD" BorderThickness="1" Background="White">
-                        <DataGrid ItemsSource="{Binding CsvViewer.FilteredView}"
-                                  AutoGenerateColumns="True"
-                                  IsReadOnly="True"
-                                  SelectionMode="Extended"
-                                  SelectionUnit="FullRow"
-                                  AlternatingRowBackground="#FAFAFA"
-                                  RowBackground="White"
-                                  ColumnHeaderStyle="{StaticResource DataGridHeaderStyle}"
-                                  GridLinesVisibility="Horizontal"
-                                  BorderThickness="0"
-                                  CanUserAddRows="False"
-                                  CanUserDeleteRows="False"
-                                  CanUserReorderColumns="True"
-                                  CanUserResizeColumns="True"
-                                  CanUserSortColumns="True"
-                                  FontSize="11"/>
-                    </Border>
-
-                    <!-- 상태 표시줄 -->
-                    <TextBlock Grid.Row="3"
-                               Text="{Binding CsvViewer.StatusMessage, FallbackValue='Ready'}"
-                               Margin="0,6,0,0" FontSize="10" Foreground="#666666"/>
-                </Grid>
-            </TabItem>
-
-            <!-- 탭 3: AWP 4D Automation (Phase 8) -->
-            <TabItem Header="⏱️ AWP 4D">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="12">
-                        <TextBlock Text="AWP 4D Automation" Style="{StaticResource SectionTitle}"/>
-                        <TextBlock Text="CSV 스케줄 → TimeLiner 자동 연결"
-                                   Style="{StaticResource LabelStyle}" Margin="0,0,0,15"/>
-
-                        <!-- CSV 파일 선택 -->
-                        <Border Background="#E8F4FD" Padding="12" Margin="0,0,0,12" CornerRadius="4">
-                            <StackPanel>
-                                <TextBlock Text="Schedule CSV File" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                                <StackPanel Orientation="Horizontal">
-                                    <Button Content="📂 Browse"
-                                            Style="{StaticResource ActionButton}"
-                                            Command="{Binding AWP4D.BrowseCsvCommand}"
-                                            Width="80" Height="30"/>
-                                    <TextBlock Text="{Binding AWP4D.CsvFileName, FallbackValue='(No file selected)'}"
-                                               VerticalAlignment="Center" Margin="10,0,0,0"
-                                               FontSize="11" Foreground="#666666"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- 옵션 -->
-                        <Border Background="#F8F9FA" BorderBrush="#DDDDDD" BorderThickness="1"
-                                Padding="12" Margin="0,0,0,12" CornerRadius="4">
-                            <StackPanel>
-                                <TextBlock Text="Pipeline Options" FontWeight="SemiBold" Margin="0,0,0,10"/>
-
-                                <CheckBox Content="Property Write (ComAPI)"
-                                          IsChecked="{Binding AWP4D.EnablePropertyWrite}"
-                                          Margin="0,0,0,6"/>
-                                <CheckBox Content="Selection Set 생성"
-                                          IsChecked="{Binding AWP4D.EnableSelectionSetCreation}"
-                                          Margin="0,0,0,6"/>
-                                <CheckBox Content="TimeLiner Task 생성"
-                                          IsChecked="{Binding AWP4D.EnableTimeLinerTaskCreation}"
-                                          Margin="0,0,0,10"/>
-
-                                <TextBlock Text="Grouping Strategy" Style="{StaticResource LabelStyle}"/>
-                                <ComboBox ItemsSource="{Binding AWP4D.GroupingStrategies}"
-                                          SelectedItem="{Binding AWP4D.SelectedGroupingStrategy}"
-                                          Height="26" Margin="0,0,0,10"/>
-
-                                <TextBlock Text="Min Match Rate (%)" Style="{StaticResource LabelStyle}"/>
-                                <TextBox Text="{Binding AWP4D.MinMatchSuccessRate, UpdateSourceTrigger=PropertyChanged}"
-                                         Height="26" Padding="6,4" Margin="0,0,0,10"
-                                         InputMethod.IsInputMethodEnabled="True"
-                                         PreviewKeyDown="TextBox_PreviewKeyDown"
-                                         GotFocus="TextBox_GotFocus"/>
-
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" Margin="0,0,5,0">
-                                        <TextBlock Text="Set Folder" Style="{StaticResource LabelStyle}"/>
-                                        <TextBox Text="{Binding AWP4D.SelectionSetRootFolder, UpdateSourceTrigger=PropertyChanged}"
-                                                 Height="26" Padding="6,4"
-                                                 InputMethod.IsInputMethodEnabled="True"
-                                                 PreviewKeyDown="TextBox_PreviewKeyDown"
-                                                 GotFocus="TextBox_GotFocus"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1" Margin="5,0,0,0">
-                                        <TextBlock Text="Task Folder" Style="{StaticResource LabelStyle}"/>
-                                        <TextBox Text="{Binding AWP4D.TimeLinerRootFolder, UpdateSourceTrigger=PropertyChanged}"
-                                                 Height="26" Padding="6,4"
-                                                 InputMethod.IsInputMethodEnabled="True"
-                                                 PreviewKeyDown="TextBox_PreviewKeyDown"
-                                                 GotFocus="TextBox_GotFocus"/>
-                                    </StackPanel>
-                                </Grid>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- 실행 버튼 -->
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                            <Button Content="▶ Execute"
-                                    Style="{StaticResource SuccessButton}"
-                                    Command="{Binding AWP4D.ExecuteCommand}"
-                                    Width="100" Height="35"/>
-                            <Button Content="🔍 Validate"
-                                    Style="{StaticResource FilterButton}"
-                                    Command="{Binding AWP4D.ValidateCommand}"
-                                    Width="80" Height="35" Margin="5,0,0,0"/>
-                            <CheckBox Content="Dry Run"
-                                      IsChecked="{Binding AWP4D.IsDryRun}"
-                                      VerticalAlignment="Center" Margin="10,0,0,0"/>
-                        </StackPanel>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                            <Button Content="⏹ Cancel"
-                                    Style="{StaticResource FilterButton}"
-                                    Command="{Binding AWP4D.CancelCommand}"
-                                    Width="80" Height="30"/>
-                            <Button Content="🗑 Clear Results"
-                                    Style="{StaticResource FilterButton}"
-                                    Command="{Binding AWP4D.ClearResultsCommand}"
-                                    Width="100" Height="30" Margin="5,0,0,0"/>
-                            <Button Content="🧹 Clear AWP Data"
-                                    Style="{StaticResource FilterButton}"
-                                    Command="{Binding AWP4D.ClearExistingDataCommand}"
-                                    Width="110" Height="30" Margin="5,0,0,0"
-                                    ToolTip="Delete all AWP Selection Sets and TimeLiner Tasks"/>
-                        </StackPanel>
-
-                        <!-- 진행률 -->
-                        <Border Background="#F0F0F0" Padding="10" Margin="0,0,0,12" CornerRadius="4"
-                                Visibility="{Binding AWP4D.IsRunning, Converter={StaticResource BoolToVisibilityConverter}}">
-                            <StackPanel>
-                                <TextBlock Text="{Binding AWP4D.CurrentPhase, FallbackValue='Ready'}"
-                                           FontWeight="SemiBold" Margin="0,0,0,6"/>
-                                <ProgressBar Value="{Binding AWP4D.ProgressPercentage}"
-                                             Minimum="0" Maximum="100" Height="18"/>
-                                <TextBlock Text="{Binding AWP4D.StatusMessage}"
-                                           FontSize="10" Foreground="#666666" Margin="0,4,0,0"/>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- 로그 -->
-                        <Border Background="White" BorderBrush="#DDDDDD" BorderThickness="1"
-                                Padding="8" CornerRadius="4" MaxHeight="150">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <ItemsControl ItemsSource="{Binding AWP4D.LogEntries}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock FontSize="10" TextWrapping="Wrap" Margin="0,1">
-                                                <Run Text="{Binding Timestamp, StringFormat='[{0:HH:mm:ss}]', Mode=OneWay}" Foreground="#999999"/>
-                                                <Run Text="{Binding Message, Mode=OneWay}"/>
-                                            </TextBlock>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-
-            <!-- 탭 4: Schedule Builder (Phase 10) -->
-            <TabItem Header="📅 Schedule">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="12">
-                        <TextBlock Text="Schedule Builder" FontSize="16" FontWeight="Bold"
-                                   Foreground="#0078D4" Margin="0,0,0,12"/>
-
-                        <!-- 선택 상태 표시 -->
-                        <Border Background="#E3F2FD" Padding="12" Margin="0,0,0,12" CornerRadius="4">
-                            <StackPanel>
-                                <TextBlock FontWeight="SemiBold">
-                                    <Run Text="선택된 객체: "/>
-                                    <Run Text="{Binding ScheduleBuilder.SelectedCount, FallbackValue=0, Mode=OneWay}" Foreground="#0078D4" FontWeight="Bold"/>
-                                    <Run Text=" 개"/>
-                                </TextBlock>
-                                <TextBlock Text="{Binding ScheduleBuilder.StatusMessage, FallbackValue='선택된 항목이 없습니다.'}"
-                                           FontSize="11" Foreground="#666666" Margin="0,4,0,0"/>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- 옵션 설정 -->
-                        <Border Background="#F8F9FA" Padding="12" Margin="0,0,0,12" CornerRadius="4">
-                            <StackPanel>
-                                <TextBlock Text="Task 설정" FontWeight="Bold" Margin="0,0,0,10"/>
-
-                                <!-- Task Name Prefix -->
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="100"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Task Prefix" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Column="1" Text="{Binding ScheduleBuilder.TaskNamePrefix, UpdateSourceTrigger=PropertyChanged}"
-                                             Height="26" Padding="6,4"
-                                             InputMethod.IsInputMethodEnabled="True"
-                                             PreviewKeyDown="TextBox_PreviewKeyDown"
-                                             GotFocus="TextBox_GotFocus"/>
-                                </Grid>
-
-                                <!-- Task Type -->
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="100"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Task Type" VerticalAlignment="Center"/>
-                                    <ComboBox Grid.Column="1" ItemsSource="{Binding ScheduleBuilder.TaskTypes}"
-                                              SelectedItem="{Binding ScheduleBuilder.SelectedTaskType}"
-                                              Height="26"/>
-                                </Grid>
-
-                                <!-- Duration -->
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="100"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="30"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Duration" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Column="1" Text="{Binding ScheduleBuilder.DurationPerTask, UpdateSourceTrigger=PropertyChanged}"
-                                             Height="26" Padding="6,4"
-                                             InputMethod.IsInputMethodEnabled="True"
-                                             PreviewKeyDown="TextBox_PreviewKeyDown"
-                                             GotFocus="TextBox_GotFocus"/>
-                                    <TextBlock Grid.Column="2" Text="일" VerticalAlignment="Center" Margin="6,0,0,0"/>
-                                </Grid>
-
-                                <!-- Start Date -->
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="100"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Start Date" VerticalAlignment="Center"/>
-                                    <DatePicker Grid.Column="1" SelectedDate="{Binding ScheduleBuilder.StartDate}"
-                                                Height="26"/>
-                                </Grid>
-
-                                <!-- Date Mode (Phase 13) -->
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="100"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Date Mode" VerticalAlignment="Center"/>
-                                    <ComboBox Grid.Column="1"
-                                              ItemsSource="{Binding ScheduleBuilder.DateModeOptions}"
-                                              SelectedValue="{Binding ScheduleBuilder.SelectedDateMode}"
-                                              SelectedValuePath="Mode"
-                                              DisplayMemberPath="DisplayName"
-                                              Height="26"
-                                              ToolTip="TimeLiner 날짜 설정 방식"/>
-                                </Grid>
-
-                                <!-- ParentSet Strategy -->
-                                <TextBlock Text="ParentSet 전략" FontWeight="Bold" Margin="0,12,0,8"/>
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="100"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Strategy" VerticalAlignment="Center"/>
-                                    <ComboBox Grid.Column="1" ItemsSource="{Binding ScheduleBuilder.ParentSetStrategies}"
-                                              SelectedItem="{Binding ScheduleBuilder.ParentSetStrategy}"
-                                              Height="26"/>
-                                </Grid>
-
-                                <!-- Level (ByLevel 전략 시) -->
-                                <Grid Margin="0,0,0,8"
-                                      Visibility="{Binding ScheduleBuilder.IsLevelStrategySelected, Converter={StaticResource BoolToVisibilityConverter}}">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="100"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Level" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Column="1" Text="{Binding ScheduleBuilder.ParentSetLevel, UpdateSourceTrigger=PropertyChanged}"
-                                             Height="26" Padding="6,4"
-                                             InputMethod.IsInputMethodEnabled="True"
-                                             PreviewKeyDown="TextBox_PreviewKeyDown"
-                                             GotFocus="TextBox_GotFocus"/>
-                                </Grid>
-
-                                <!-- Custom ParentSet (Custom 전략 시) -->
-                                <Grid Margin="0,0,0,8"
-                                      Visibility="{Binding ScheduleBuilder.IsCustomStrategySelected, Converter={StaticResource BoolToVisibilityConverter}}">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="100"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Custom Set" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Column="1" Text="{Binding ScheduleBuilder.CustomParentSet, UpdateSourceTrigger=PropertyChanged}"
-                                             Height="26" Padding="6,4"
-                                             InputMethod.IsInputMethodEnabled="True"
-                                             PreviewKeyDown="TextBox_PreviewKeyDown"
-                                             GotFocus="TextBox_GotFocus"/>
-                                </Grid>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- 실행 버튼 -->
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <Button Content="🔄 Refresh"
-                                    Style="{StaticResource FilterButton}"
-                                    Command="{Binding ScheduleBuilder.RefreshPreviewCommand}"
-                                    Width="80" Height="28"/>
-                            <Button Content="💾 CSV"
-                                    Style="{StaticResource SuccessButton}"
-                                    Command="{Binding ScheduleBuilder.GenerateCsvCommand}"
-                                    Width="70" Height="28" Margin="6,0,0,0"
-                                    ToolTip="Schedule CSV 파일 저장"/>
-                            <Button Content="▶ Temp CSV"
-                                    Style="{StaticResource ActionButton}"
-                                    Command="{Binding ScheduleBuilder.ExecuteToTimeLinerCommand}"
-                                    Width="85" Height="28" Margin="6,0,0,0"
-                                    ToolTip="임시 CSV 생성 후 AWP 4D 탭에서 로드"/>
-                        </StackPanel>
-
-                        <!-- Phase 13: 직접 실행 섹션 -->
-                        <Border Background="#E8F5E9" Padding="10" Margin="0,0,0,12" CornerRadius="4">
-                            <StackPanel>
-                                <TextBlock Text="⚡ Direct TimeLiner Execution" FontWeight="SemiBold" Foreground="#2E7D32" Margin="0,0,0,8"/>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                    <CheckBox Content="DryRun (미리보기만)"
-                                              IsChecked="{Binding ScheduleBuilder.IsDryRunMode}"
-                                              VerticalAlignment="Center"
-                                              ToolTip="체크하면 실제 실행 없이 결과를 미리 확인합니다"/>
-                                    <Button Content="🚀 직접 실행"
-                                            Background="#2E7D32" Foreground="White"
-                                            Command="{Binding ScheduleBuilder.DirectExecuteCommand}"
-                                            Width="100" Height="28" Margin="12,0,0,0"
-                                            ToolTip="CSV 없이 직접 TimeLiner에 연결"
-                                            IsEnabled="{Binding ScheduleBuilder.CanExecute}"/>
-                                </StackPanel>
-                                <!-- 진행률 표시 -->
-                                <Grid Visibility="{Binding ScheduleBuilder.IsExecuting, Converter={StaticResource BoolToVisibilityConverter}}">
-                                    <ProgressBar Value="{Binding ScheduleBuilder.ExecutionProgress}"
-                                                 Minimum="0" Maximum="100"
-                                                 Height="6" Background="#C8E6C9" Foreground="#2E7D32"/>
-                                </Grid>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- 예상 기간 표시 -->
-                        <Border Background="#FFF3E0" Padding="10" Margin="0,0,0,12" CornerRadius="4"
-                                Visibility="{Binding ScheduleBuilder.SelectedCount, Converter={StaticResource BoolToVisibilityConverter}}">
-                            <TextBlock>
-                                <Run Text="예상 총 기간: "/>
-                                <Run Text="{Binding ScheduleBuilder.TotalDuration, FallbackValue=0, Mode=OneWay}" FontWeight="Bold" Foreground="#E65100"/>
-                                <Run Text=" 일"/>
-                            </TextBlock>
-                        </Border>
-
-                        <!-- 미리보기 DataGrid -->
-                        <Border Background="White" BorderBrush="#DDDDDD" BorderThickness="1"
-                                Padding="1" CornerRadius="4" MaxHeight="200">
-                            <DataGrid ItemsSource="{Binding ScheduleBuilder.PreviewItems}"
-                                      AutoGenerateColumns="False"
-                                      IsReadOnly="True"
-                                      CanUserAddRows="False"
-                                      CanUserDeleteRows="False"
-                                      RowHeight="24"
-                                      HeadersVisibility="Column"
-                                      GridLinesVisibility="Horizontal"
-                                      HorizontalGridLinesBrush="#EEEEEE"
-                                      AlternatingRowBackground="#FAFAFA"
-                                      EnableRowVirtualization="True">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Task" Binding="{Binding TaskName}" Width="70"/>
-                                    <DataGridTextColumn Header="Planned Start" Binding="{Binding PlannedStart, StringFormat='yyyy-MM-dd'}" Width="85"/>
-                                    <DataGridTextColumn Header="Planned End" Binding="{Binding PlannedEnd, StringFormat='yyyy-MM-dd'}" Width="85"/>
-                                    <DataGridTextColumn Header="Actual" Binding="{Binding ActualDateDisplay}" Width="70">
-                                        <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Foreground" Value="#28A745"/>
-                                                <Setter Property="FontSize" Value="10"/>
-                                            </Style>
-                                        </DataGridTextColumn.ElementStyle>
-                                    </DataGridTextColumn>
-                                    <DataGridTextColumn Header="Type" Binding="{Binding TaskType}" Width="50"/>
-                                    <DataGridTextColumn Header="Set" Binding="{Binding ParentSet}" Width="60"/>
-                                    <DataGridTextColumn Header="Original" Binding="{Binding OriginalDisplayName}" Width="*"/>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </Border>
-
-                        <!-- 사용법 안내 -->
-                        <Border Background="#F0F0F0" Padding="10" Margin="0,12,0,0" CornerRadius="4">
-                            <StackPanel>
-                                <TextBlock Text="사용 방법" FontWeight="Bold" Margin="0,0,0,6"/>
-                                <TextBlock Text="1. 중앙 패널에서 객체를 선택 (체크박스)" FontSize="10" Foreground="#666666"/>
-                                <TextBlock Text="2. Task 설정 (이름, 기간, 시작일, ParentSet)" FontSize="10" Foreground="#666666"/>
-                                <TextBlock Text="3. 'Refresh Preview'로 미리보기 확인" FontSize="10" Foreground="#666666"/>
-                                <TextBlock Text="4. 'Generate CSV' 또는 'To TimeLiner' 실행" FontSize="10" Foreground="#666666"/>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-
-            <!-- 탭 5: Pipeline 4D -->
-            <TabItem Header="Pipeline 4D">
+            <!-- 탭 1: Pipeline 4D -->
+            <TabItem Header="Pipeline 4D" IsSelected="True">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="12">
                         <TextBlock Text="Pipeline 4D Schedule" FontSize="16" FontWeight="Bold"
@@ -1335,6 +758,7 @@
                                         <RowDefinition Height="32"/>
                                         <RowDefinition Height="32"/>
                                         <RowDefinition Height="32"/>
+                                        <RowDefinition Height="32"/>
                                     </Grid.RowDefinitions>
 
                                     <TextBlock Text="시작일" VerticalAlignment="Center" Grid.Row="0"/>
@@ -1364,6 +788,14 @@
                                     <ComboBox ItemsSource="{Binding Pipeline4D.OrderingStrategies}"
                                               SelectedItem="{Binding Pipeline4D.SelectedOrderingStrategy}"
                                               Height="26" Grid.Row="5" Grid.Column="1"/>
+
+                                    <TextBlock Text="Task 단위:" VerticalAlignment="Center" Grid.Row="6" FontSize="11"/>
+                                    <StackPanel Orientation="Horizontal" Grid.Row="6" Grid.Column="1" VerticalAlignment="Center">
+                                        <RadioButton Content="PipeRun별" GroupName="TaskGranularity"
+                                                     IsChecked="{Binding Pipeline4D.IsByPipeRun}" Margin="0,0,12,0"/>
+                                        <RadioButton Content="객체별" GroupName="TaskGranularity"
+                                                     IsChecked="{Binding Pipeline4D.IsByObject}"/>
+                                    </StackPanel>
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -1385,6 +817,7 @@
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Pipeline" Binding="{Binding Pipeline}" Width="80"/>
                                     <DataGridTextColumn Header="PipeRun" Binding="{Binding PipeRun}" Width="*"/>
+                                    <DataGridTextColumn Header="객체명" Binding="{Binding ObjectName}" Width="120"/>
                                     <DataGridTextColumn Header="Objects" Binding="{Binding ObjectCount}" Width="55"/>
                                     <DataGridTextColumn Header="Start" Binding="{Binding Start, StringFormat='yyyy-MM-dd'}" Width="80"/>
                                     <DataGridTextColumn Header="End" Binding="{Binding End, StringFormat='yyyy-MM-dd'}" Width="80"/>
@@ -1442,179 +875,61 @@
                 </ScrollViewer>
             </TabItem>
 
-            <!-- 탭 6: Ontology (Phase 14) -->
-            <TabItem Header="🧠 Ontology">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="10">
-                    <StackPanel>
-                        <!-- 헤더 -->
-                        <Border Background="#E8F4FD" Padding="12" Margin="0,0,0,10" CornerRadius="4">
+            <!-- 탭 2: Search Set 생성 -->
+            <TabItem Header="🔍 Search Set">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="12">
+                        <TextBlock Text="Search Set 생성" Style="{StaticResource SectionTitle}"/>
+                        <TextBlock Text="필터링된 데이터로 Navisworks 검색 세트 생성"
+                                   Style="{StaticResource LabelStyle}" Margin="0,0,0,15"/>
+
+                        <!-- 선택 상태 -->
+                        <Border Background="#E6F3FF" BorderBrush="#0078D4" BorderThickness="1"
+                                Padding="12" Margin="0,0,0,15" CornerRadius="4">
                             <StackPanel>
-                                <TextBlock Text="BIM Ontology System" FontSize="14" FontWeight="Bold"/>
-                                <TextBlock Text="Hierarchy Data → RDF → Inference → Schedule Automation"
-                                           FontSize="11" Foreground="#666" Margin="0,4,0,0"/>
+                                <TextBlock Text="선택된 항목" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                <TextBlock Text="{Binding SelectedPropertiesCount, FallbackValue='0개 선택됨'}"
+                                           FontSize="18" FontWeight="Bold" Foreground="#0078D4"/>
                             </StackPanel>
                         </Border>
 
-                        <!-- 통계 카드 -->
-                        <Border Background="White" BorderBrush="#DDD" BorderThickness="1"
-                                Padding="12" Margin="0,0,0,10" CornerRadius="4">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
+                        <!-- 폴더 이름 -->
+                        <TextBlock Text="폴더 이름" Style="{StaticResource LabelStyle}"/>
+                        <TextBox Text="{Binding FolderName, UpdateSourceTrigger=PropertyChanged}"
+                                 Height="30" Margin="0,0,0,12" Padding="8,5"
+                                 InputMethod.IsInputMethodEnabled="True"
+                                 PreviewKeyDown="TextBox_PreviewKeyDown"
+                                 GotFocus="TextBox_GotFocus"/>
 
-                                <!-- Triples -->
-                                <StackPanel Grid.Column="0" HorizontalAlignment="Center">
-                                    <TextBlock Text="{Binding OntologyVM.TotalTriplesDisplay, FallbackValue='0'}"
-                                               FontSize="24" FontWeight="Bold" Foreground="#0078D4"/>
-                                    <TextBlock Text="Triples" FontSize="10" Foreground="#666"/>
-                                </StackPanel>
+                        <!-- 세트 이름 -->
+                        <TextBlock Text="세트 이름" Style="{StaticResource LabelStyle}"/>
+                        <TextBox Text="{Binding NewSetName, UpdateSourceTrigger=PropertyChanged}"
+                                 Height="30" Margin="0,0,0,15" Padding="8,5"
+                                 InputMethod.IsInputMethodEnabled="True"
+                                 PreviewKeyDown="TextBox_PreviewKeyDown"
+                                 GotFocus="TextBox_GotFocus"/>
 
-                                <!-- Objects -->
-                                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
-                                    <TextBlock Text="{Binding OntologyVM.TotalObjectsDisplay, FallbackValue='0'}"
-                                               FontSize="24" FontWeight="Bold" Foreground="#28A745"/>
-                                    <TextBlock Text="Objects" FontSize="10" Foreground="#666"/>
-                                </StackPanel>
-
-                                <!-- Precedence -->
-                                <StackPanel Grid.Column="2" HorizontalAlignment="Center">
-                                    <TextBlock Text="{Binding OntologyVM.PrecedenceCountDisplay, FallbackValue='0'}"
-                                               FontSize="24" FontWeight="Bold" Foreground="#FFC107"/>
-                                    <TextBlock Text="Precedence" FontSize="10" Foreground="#666"/>
-                                </StackPanel>
-
-                                <!-- Levels -->
-                                <StackPanel Grid.Column="3" HorizontalAlignment="Center">
-                                    <TextBlock Text="{Binding OntologyVM.LevelCountDisplay, FallbackValue='0'}"
-                                               FontSize="24" FontWeight="Bold" Foreground="#DC3545"/>
-                                    <TextBlock Text="Levels" FontSize="10" Foreground="#666"/>
-                                </StackPanel>
-                            </Grid>
+                        <!-- 선택된 속성 미리보기 -->
+                        <TextBlock Text="선택된 속성 미리보기" Style="{StaticResource LabelStyle}"/>
+                        <Border Background="#F8F9FA" BorderBrush="#DDDDDD" BorderThickness="1"
+                                Padding="10" Margin="0,0,0,15" MaxHeight="200">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <TextBlock Text="{Binding SelectedPropertyInfo, FallbackValue='(Hierarchy Data에서 항목을 선택하세요)'}"
+                                           TextWrapping="Wrap" FontSize="11" Foreground="#666666"/>
+                            </ScrollViewer>
                         </Border>
 
-                        <!-- 컨트롤 버튼 -->
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                            <Button Content="Build Ontology"
-                                    Command="{Binding OntologyVM.BuildOntologyCommand}"
-                                    Style="{StaticResource SuccessButton}"
-                                    Width="110" Height="28"/>
-                            <Button Content="Run Inference"
-                                    Command="{Binding OntologyVM.RunInferenceCommand}"
-                                    Style="{StaticResource ActionButton}"
-                                    Width="110" Height="28" Margin="6,0,0,0"/>
-                            <Button Content="Export RDF"
-                                    Command="{Binding OntologyVM.ExportRdfCommand}"
-                                    Style="{StaticResource FilterButton}"
-                                    Width="90" Height="28" Margin="6,0,0,0"/>
-                            <Button Content="Clear"
-                                    Command="{Binding OntologyVM.ClearOntologyCommand}"
-                                    Style="{StaticResource FilterButton}"
-                                    Width="60" Height="28" Margin="6,0,0,0"/>
-                        </StackPanel>
-
-                        <!-- Level 필터 -->
-                        <Border Background="#F5F5F5" Padding="10" Margin="0,0,0,10" CornerRadius="4">
-                            <StackPanel>
-                                <TextBlock Text="Level Filter" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                                <StackPanel Orientation="Horizontal">
-                                    <ComboBox ItemsSource="{Binding OntologyVM.AvailableLevels}"
-                                              SelectedItem="{Binding OntologyVM.SelectedLevel}"
-                                              Width="150" Height="28"/>
-                                    <Button Content="Refresh"
-                                            Command="{Binding OntologyVM.RefreshLevelViewCommand}"
-                                            Style="{StaticResource FilterButton}"
-                                            Width="70" Height="28" Margin="8,0,0,0"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- 분류 결과 DataGrid -->
-                        <Border Background="White" BorderBrush="#DDD" BorderThickness="1"
-                                Padding="10" Margin="0,0,0,10" CornerRadius="4">
-                            <StackPanel>
-                                <TextBlock Text="Classification Results" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                                <DataGrid ItemsSource="{Binding OntologyVM.CurrentNodes}"
-                                          AutoGenerateColumns="False"
-                                          IsReadOnly="True"
-                                          MaxHeight="150"
-                                          CanUserAddRows="False"
-                                          HeadersVisibility="Column"
-                                          GridLinesVisibility="Horizontal"
-                                          AlternatingRowBackground="#FAFAFA"
-                                          ColumnHeaderStyle="{StaticResource DataGridHeaderStyle}">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Name" Binding="{Binding DisplayName}" Width="*"/>
-                                        <DataGridTextColumn Header="Type" Binding="{Binding RdfType}" Width="70"/>
-                                        <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="90"/>
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- 선행관계 DataGrid -->
-                        <Border Background="White" BorderBrush="#DDD" BorderThickness="1"
-                                Padding="10" Margin="0,0,0,10" CornerRadius="4">
-                            <StackPanel>
-                                <TextBlock Text="Inferred Precedence Relations" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                                <DataGrid ItemsSource="{Binding OntologyVM.PrecedenceRelations}"
-                                          AutoGenerateColumns="False"
-                                          IsReadOnly="True"
-                                          MaxHeight="150"
-                                          CanUserAddRows="False"
-                                          HeadersVisibility="Column"
-                                          GridLinesVisibility="Horizontal"
-                                          AlternatingRowBackground="#FAFAFA"
-                                          ColumnHeaderStyle="{StaticResource DataGridHeaderStyle}">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Predecessor" Binding="{Binding PredecessorName}" Width="*"/>
-                                        <DataGridTextColumn Header="→" Width="30">
-                                            <DataGridTextColumn.ElementStyle>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Text" Value="→"/>
-                                                    <Setter Property="HorizontalAlignment" Value="Center"/>
-                                                    <Setter Property="Foreground" Value="#0078D4"/>
-                                                    <Setter Property="FontWeight" Value="Bold"/>
-                                                </Style>
-                                            </DataGridTextColumn.ElementStyle>
-                                        </DataGridTextColumn>
-                                        <DataGridTextColumn Header="Successor" Binding="{Binding SuccessorName}" Width="*"/>
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- SPARQL 쿼리 -->
-                        <Border Background="White" BorderBrush="#DDD" BorderThickness="1"
-                                Padding="10" CornerRadius="4">
-                            <StackPanel>
-                                <TextBlock Text="Custom SPARQL Query" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                                <TextBox Text="{Binding OntologyVM.CustomSparql, UpdateSourceTrigger=PropertyChanged}"
-                                         Height="70" AcceptsReturn="True" TextWrapping="Wrap"
-                                         FontFamily="Consolas" FontSize="10"
-                                         VerticalScrollBarVisibility="Auto"/>
-                                <Button Content="Execute Query"
-                                        Command="{Binding OntologyVM.ExecuteQueryCommand}"
-                                        Style="{StaticResource ActionButton}"
-                                        Width="110" HorizontalAlignment="Left" Margin="0,8,0,8"/>
-                                <TextBox Text="{Binding OntologyVM.QueryResult, Mode=OneWay}"
-                                         Height="80" IsReadOnly="True" TextWrapping="Wrap"
-                                         FontFamily="Consolas" FontSize="9" Background="#F5F5F5"
-                                         VerticalScrollBarVisibility="Auto"/>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- 상태 표시 -->
-                        <TextBlock Text="{Binding OntologyVM.StatusMessage, FallbackValue='Ready'}"
-                                   Foreground="#666" FontSize="11" Margin="0,10,0,0"/>
+                        <!-- 생성 버튼 -->
+                        <Button Content="🔍 Search Set 생성"
+                                Style="{StaticResource SuccessButton}"
+                                HorizontalAlignment="Stretch"
+                                Height="40"
+                                Command="{Binding CreateSearchSetCommand}"/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
 
-            <!-- 탭 6: 정보 -->
+            <!-- 탭 3: 정보 -->
             <TabItem Header="ℹ️ Info">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="12">

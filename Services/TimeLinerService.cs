@@ -4,6 +4,7 @@ using System.Linq;
 using Autodesk.Navisworks.Api;
 using Autodesk.Navisworks.Api.Timeliner;
 using DXTnavis.Models;
+using WinForms = System.Windows.Forms;
 
 namespace DXTnavis.Services
 {
@@ -116,7 +117,9 @@ namespace DXTnavis.Services
         }
 
         /// <summary>
-        /// 계층적 Task 생성
+        /// 계층적 Task 생성 (2-Phase: 구조 생성 → Selection 연결)
+        /// Phase 1: Task 구조만 생성하여 TasksCopyFrom 적용
+        /// Phase 2: Selection 연결을 위해 다시 CreateCopy → 수정 → TasksCopyFrom
         /// </summary>
         private void CreateHierarchicalTasks(
             DocumentTimeliner timeliner,
@@ -131,7 +134,7 @@ namespace DXTnavis.Services
                 .OrderBy(g => g.Key)
                 .ToList();
 
-            // 루트 복사본 생성 (Read-Only 우회 패턴)
+            // ===== Phase 1: Task 구조 생성 (Selection 연결 없이) =====
             var rootCopy = timeliner.TasksRoot.CreateCopy() as GroupItem;
             if (rootCopy == null)
                 throw new InvalidOperationException("TasksRoot 복사 실패");
@@ -144,6 +147,9 @@ namespace DXTnavis.Services
             var folderCache = new Dictionary<string, GroupItem>(StringComparer.OrdinalIgnoreCase);
             folderCache[""] = rootFolder;
 
+            // SyncID → schedule 매핑 (Phase 2에서 Selection 연결용)
+            var syncIdToSchedule = new Dictionary<string, ScheduleData>(StringComparer.OrdinalIgnoreCase);
+
             int index = 0;
             foreach (var group in groups)
             {
@@ -155,30 +161,21 @@ namespace DXTnavis.Services
                     result.FolderCount = folderCache.Count;
                 }
 
-                // 그룹 내 스케줄별 Task 생성
+                // 그룹 내 스케줄별 Task 생성 (Selection 연결 없음)
                 foreach (var schedule in group)
                 {
                     index++;
 
                     try
                     {
-                        var task = CreateSingleTask(schedule, syncIdToSetName, options);
+                        var task = CreateSingleTaskWithoutSelection(schedule, options);
                         if (task != null)
                         {
                             targetFolder.Children.Add(task);
                             _createdTasks[schedule.SyncID] = task;
                             result.TaskCount++;
                             result.CreatedTasks.Add(schedule.TaskName ?? schedule.SyncID);
-
-                            // Selection 연결 여부 확인
-                            if (task.Selection.HasSelectionSources || task.Selection.HasExplicitSelection)
-                            {
-                                result.LinkedCount++;
-                            }
-                            else
-                            {
-                                result.UnlinkedCount++;
-                            }
+                            syncIdToSchedule[schedule.SyncID] = schedule;
                         }
 
                         OnProgressChanged(new TimeLinerProgressEventArgs
@@ -202,15 +199,225 @@ namespace DXTnavis.Services
                             ErrorMessage = ex.Message
                         });
                     }
+
+                    if (index % 10 == 0)
+                        WinForms.Application.DoEvents();
                 }
             }
 
-            // TimeLiner에 적용 (TasksCopyFrom 패턴)
+            // Phase 1 적용: Task 구조만 먼저 저장
             timeliner.TasksCopyFrom(rootCopy.Children);
+
+            if (VerboseLogging)
+                System.Diagnostics.Debug.WriteLine(
+                    $"[TimeLinerService] Phase 1 완료: {result.TaskCount}개 Task 구조 생성됨");
+
+            WinForms.Application.DoEvents();
+
+            // ===== Phase 2: Selection 연결 =====
+            if (syncIdToSetName.Count > 0 && options.TaskSelectionMode == TaskSelectionMode.SelectionSource)
+            {
+                LinkSelectionsToTasks(timeliner, syncIdToSchedule, syncIdToSetName, options, result);
+            }
+            else if (options.TaskSelectionMode == TaskSelectionMode.Explicit)
+            {
+                LinkExplicitSelectionsToTasks(timeliner, syncIdToSchedule, options, result);
+            }
         }
 
         /// <summary>
-        /// Flat Task 생성 (계층 없음)
+        /// Phase 2: Selection Set → TimeLiner Task 연결 (별도 TasksCopyFrom 사이클)
+        /// </summary>
+        private void LinkSelectionsToTasks(
+            DocumentTimeliner timeliner,
+            Dictionary<string, ScheduleData> syncIdToSchedule,
+            Dictionary<string, string> syncIdToSetName,
+            AWP4DOptions options,
+            TimeLinerResult result)
+        {
+            try
+            {
+                var rootCopy2 = timeliner.TasksRoot.CreateCopy() as GroupItem;
+                if (rootCopy2 == null) return;
+
+                int linkedCount = 0;
+
+                // Task tree에서 SyncId로 Task 찾아 Selection 연결
+                var allTasks = new List<TimelinerTask>();
+                CollectAllTasks(rootCopy2, allTasks);
+
+                foreach (var task in allTasks)
+                {
+                    if (string.IsNullOrEmpty(task.SynchronizationId))
+                        continue;
+
+                    if (!syncIdToSetName.TryGetValue(task.SynchronizationId, out string setName))
+                        continue;
+
+                    try
+                    {
+                        var selectionSet = _selectionSetService.FindSetByName(setName);
+                        if (selectionSet != null)
+                        {
+                            LinkSelectionSet(task, selectionSet);
+                            linkedCount++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        if (VerboseLogging)
+                            System.Diagnostics.Debug.WriteLine(
+                                $"[TimeLinerService] Phase 2 Selection 연결 실패 ({task.SynchronizationId}): {ex.Message}");
+                    }
+
+                    if (linkedCount % 10 == 0)
+                        WinForms.Application.DoEvents();
+                }
+
+                if (linkedCount > 0)
+                {
+                    timeliner.TasksCopyFrom(rootCopy2.Children);
+                    result.LinkedCount = linkedCount;
+                    result.UnlinkedCount = result.TaskCount - linkedCount;
+
+                    if (VerboseLogging)
+                        System.Diagnostics.Debug.WriteLine(
+                            $"[TimeLinerService] Phase 2 완료: {linkedCount}개 Selection 연결됨");
+                }
+                else
+                {
+                    result.UnlinkedCount = result.TaskCount;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Phase 2 실패해도 Phase 1 Task 구조는 유지됨
+                System.Diagnostics.Debug.WriteLine(
+                    $"[TimeLinerService] Phase 2 Selection 연결 전체 실패: {ex.Message}");
+                result.UnlinkedCount = result.TaskCount;
+                result.FailedTasks.Add($"Selection 연결 실패: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Phase 2: Explicit ModelItem → TimeLiner Task 연결
+        /// </summary>
+        private void LinkExplicitSelectionsToTasks(
+            DocumentTimeliner timeliner,
+            Dictionary<string, ScheduleData> syncIdToSchedule,
+            AWP4DOptions options,
+            TimeLinerResult result)
+        {
+            try
+            {
+                var rootCopy2 = timeliner.TasksRoot.CreateCopy() as GroupItem;
+                if (rootCopy2 == null) return;
+
+                int linkedCount = 0;
+                var allTasks = new List<TimelinerTask>();
+                CollectAllTasks(rootCopy2, allTasks);
+
+                foreach (var task in allTasks)
+                {
+                    if (string.IsNullOrEmpty(task.SynchronizationId))
+                        continue;
+
+                    if (!syncIdToSchedule.TryGetValue(task.SynchronizationId, out ScheduleData schedule))
+                        continue;
+
+                    if (!schedule.MatchedObjectId.HasValue)
+                        continue;
+
+                    try
+                    {
+                        var extractor = new NavisworksDataExtractor();
+                        var modelItem = extractor.FindModelItemById(schedule.MatchedObjectId.Value);
+                        if (modelItem != null)
+                        {
+                            var items = new ModelItemCollection();
+                            items.Add(modelItem);
+                            task.Selection.CopyFrom(items);
+                            linkedCount++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        if (VerboseLogging)
+                            System.Diagnostics.Debug.WriteLine(
+                                $"[TimeLinerService] Phase 2 Explicit 연결 실패 ({task.SynchronizationId}): {ex.Message}");
+                    }
+
+                    if (linkedCount % 10 == 0)
+                        WinForms.Application.DoEvents();
+                }
+
+                if (linkedCount > 0)
+                {
+                    timeliner.TasksCopyFrom(rootCopy2.Children);
+                    result.LinkedCount = linkedCount;
+                    result.UnlinkedCount = result.TaskCount - linkedCount;
+                }
+                else
+                {
+                    result.UnlinkedCount = result.TaskCount;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[TimeLinerService] Phase 2 Explicit 연결 전체 실패: {ex.Message}");
+                result.UnlinkedCount = result.TaskCount;
+                result.FailedTasks.Add($"Explicit Selection 연결 실패: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Task tree에서 모든 TimelinerTask를 수집 (재귀)
+        /// </summary>
+        private void CollectAllTasks(GroupItem parent, List<TimelinerTask> tasks)
+        {
+            foreach (var child in parent.Children)
+            {
+                if (child is TimelinerTask task)
+                {
+                    tasks.Add(task);
+                    if (task.Children.Count > 0)
+                        CollectAllTasks(task, tasks);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Selection 없이 Task 생성 (Phase 1용)
+        /// </summary>
+        private TimelinerTask CreateSingleTaskWithoutSelection(
+            ScheduleData schedule,
+            AWP4DOptions options)
+        {
+            var task = new TimelinerTask();
+
+            task.DisplayName = schedule.TaskName ?? schedule.SyncID;
+            task.SynchronizationId = schedule.SyncID;
+
+            if (schedule.PlannedStartDate.HasValue)
+                task.PlannedStartDate = schedule.PlannedStartDate.Value;
+
+            if (schedule.PlannedEndDate.HasValue)
+                task.PlannedEndDate = schedule.PlannedEndDate.Value;
+
+            if (schedule.ActualStartDate.HasValue)
+                task.ActualStartDate = schedule.ActualStartDate.Value;
+
+            if (schedule.ActualEndDate.HasValue)
+                task.ActualEndDate = schedule.ActualEndDate.Value;
+
+            task.SimulationTaskTypeName = ParseSimulationTaskType(schedule.TaskType ?? options.DefaultTaskType);
+
+            return task;
+        }
+
+        /// <summary>
+        /// Flat Task 생성 (계층 없음, 2-Phase)
         /// </summary>
         private void CreateFlatTasks(
             DocumentTimeliner timeliner,
@@ -227,6 +434,8 @@ namespace DXTnavis.Services
             var rootFolder = CreateTaskFolder(rootCopy, options.TimeLinerRootFolder);
             result.FolderCount = 1;
 
+            var syncIdToSchedule = new Dictionary<string, ScheduleData>(StringComparer.OrdinalIgnoreCase);
+
             int index = 0;
             foreach (var schedule in schedules)
             {
@@ -234,18 +443,14 @@ namespace DXTnavis.Services
 
                 try
                 {
-                    var task = CreateSingleTask(schedule, syncIdToSetName, options);
+                    var task = CreateSingleTaskWithoutSelection(schedule, options);
                     if (task != null)
                     {
                         rootFolder.Children.Add(task);
                         _createdTasks[schedule.SyncID] = task;
                         result.TaskCount++;
                         result.CreatedTasks.Add(schedule.TaskName ?? schedule.SyncID);
-
-                        if (task.Selection.HasSelectionSources || task.Selection.HasExplicitSelection)
-                            result.LinkedCount++;
-                        else
-                            result.UnlinkedCount++;
+                        syncIdToSchedule[schedule.SyncID] = schedule;
                     }
 
                     OnProgressChanged(new TimeLinerProgressEventArgs
@@ -269,9 +474,24 @@ namespace DXTnavis.Services
                         ErrorMessage = ex.Message
                     });
                 }
+
+                if (index % 10 == 0)
+                    WinForms.Application.DoEvents();
             }
 
+            // Phase 1: Task 구조 저장
             timeliner.TasksCopyFrom(rootCopy.Children);
+            WinForms.Application.DoEvents();
+
+            // Phase 2: Selection 연결
+            if (syncIdToSetName.Count > 0 && options.TaskSelectionMode == TaskSelectionMode.SelectionSource)
+            {
+                LinkSelectionsToTasks(timeliner, syncIdToSchedule, syncIdToSetName, options, result);
+            }
+            else if (options.TaskSelectionMode == TaskSelectionMode.Explicit)
+            {
+                LinkExplicitSelectionsToTasks(timeliner, syncIdToSchedule, options, result);
+            }
         }
 
         /// <summary>
@@ -420,33 +640,29 @@ namespace DXTnavis.Services
 
         /// <summary>
         /// SelectionSet을 Task에 연결
-        /// ExplicitModelItems를 사용하여 Task Selection에 직접 적용
+        /// SelectionSet.GetSelectedItems()로 ModelItem을 가져와 CopyFrom
         /// </summary>
         private void LinkSelectionSet(TimelinerTask task, SelectionSet selectionSet)
         {
             try
             {
-                // SelectionSet의 ExplicitModelItems를 Task Selection에 적용
-                var items = new ModelItemCollection();
-                foreach (var item in selectionSet.ExplicitModelItems)
-                {
-                    items.Add(item);
-                }
-
-                if (items.Count > 0)
+                // GetSelectedItems()는 새 ModelItemCollection 반환 (read-only 아님)
+                var items = selectionSet.GetSelectedItems();
+                if (items != null && items.Count > 0)
                 {
                     task.Selection.CopyFrom(items);
 
                     if (VerboseLogging)
                     {
                         System.Diagnostics.Debug.WriteLine(
-                            $"[TimeLinerService] Selection 연결 성공: {task.DisplayName} ← {selectionSet.DisplayName} ({items.Count} items)");
+                            $"[TimeLinerService] Selection 연결 성공: {task.DisplayName} ← {selectionSet.DisplayName} ({items.Count}개 객체)");
                     }
                 }
                 else
                 {
-                    System.Diagnostics.Debug.WriteLine(
-                        $"[TimeLinerService] Selection 연결 경고: {selectionSet.DisplayName}에 항목이 없습니다.");
+                    if (VerboseLogging)
+                        System.Diagnostics.Debug.WriteLine(
+                            $"[TimeLinerService] Selection 연결 경고: {selectionSet.DisplayName}에 선택된 항목 없음");
                 }
             }
             catch (Exception ex)

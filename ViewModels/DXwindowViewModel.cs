@@ -10,7 +10,6 @@ using Autodesk.Navisworks.Api;
 using DXTnavis.Helpers;
 using DXTnavis.Models;
 using DXTnavis.Services;
-// using DXTnavis.Services.Ontology; // Phase 14: 임시 비활성화
 using Microsoft.Win32;
 
 namespace DXTnavis.ViewModels
@@ -71,48 +70,15 @@ namespace DXTnavis.ViewModels
         private bool _isGroupSelectAll;
         private bool _isUpdatingGroupSelectAll;
 
-        // Phase 14: Ontology ViewModel (타입을 object로 변경하여 지연 로딩)
-        private object _ontologyVM;
-
         #endregion
 
         #region Properties
-
-        /// <summary>
-        /// CSV Viewer ViewModel (v0.5.0)
-        /// </summary>
-        public CsvViewerViewModel CsvViewer { get; }
-
-        /// <summary>
-        /// AWP 4D Automation ViewModel (Phase 8)
-        /// </summary>
-        public AWP4DViewModel AWP4D { get; }
-
-        /// <summary>
-        /// Schedule Builder ViewModel (Phase 10)
-        /// </summary>
-        public ScheduleBuilderViewModel ScheduleBuilder { get; }
 
         /// <summary>
         /// Pipeline 4D Schedule ViewModel
         /// SP3D Pipeline/PipeRun 기반 자동 스케줄 생성
         /// </summary>
         public PipelineScheduleViewModel Pipeline4D { get; }
-
-        /// <summary>
-        /// Ontology ViewModel (Phase 14)
-        /// 타입을 object로 변경하여 OntologyViewModel 어셈블리 지연 로딩
-        /// XAML 바인딩은 FallbackValue로 처리됨
-        /// </summary>
-        public object OntologyVM
-        {
-            get => _ontologyVM;
-            set
-            {
-                _ontologyVM = value;
-                OnPropertyChanged(nameof(OntologyVM));
-            }
-        }
 
         /// <summary>
         /// 전체 선택 상태 (v0.6.1)
@@ -596,6 +562,8 @@ namespace DXTnavis.ViewModels
         public ICommand ExportSelectionAdjacencyCommand { get; }   // Selection × Adjacency
         // Full Pipeline Export Command (Unified + Geometry + Mesh + Spatial)
         public ICommand ExportFullPipelineCommand { get; }         // All-in-One Export
+        // Refined XLSX Export (ClosedXML)
+        public ICommand ExportRefinedXlsxCommand { get; }          // Refined XLSX
         // Phase 18: Test Mesh Export
         public ICommand ExportTestMeshCommand { get; }             // Test Mesh GLB
         // Phase 19: Mesh Diagnostic
@@ -663,35 +631,8 @@ namespace DXTnavis.ViewModels
             // Snapshot Service 초기화 (Phase 4)
             _snapshotService = new SnapshotService();
 
-            // CSV Viewer 초기화 (v0.5.0)
-            CsvViewer = new CsvViewerViewModel();
-
-            // AWP 4D Automation 초기화 (Phase 8)
-            AWP4D = new AWP4DViewModel();
-
-            // Schedule Builder 초기화 (Phase 10)
-            // Phase 12: 그룹 기반 선택 지원
-            ScheduleBuilder = new ScheduleBuilderViewModel(
-                () => GetSelectedHierarchicalRecords(),
-                null);
-
             // Pipeline 4D Schedule 초기화
             Pipeline4D = new PipelineScheduleViewModel();
-
-            // Phase 14: Ontology ViewModel 초기화 (임시 비활성화 - 플러그인 로딩 테스트)
-            // TODO: dotNetRdf/Neo4j 어셈블리 로딩 문제 해결 후 활성화
-            OntologyVM = null;
-            /*
-            try
-            {
-                OntologyVM = new OntologyViewModel(() => GetAllHierarchicalRecords());
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[DXwindowViewModel] OntologyVM init failed: {ex.Message}");
-                OntologyVM = null;
-            }
-            */
 
             // 초기 상태 메시지
             StatusMessage = "Ready - Select objects to view hierarchy";
@@ -788,6 +729,10 @@ namespace DXTnavis.ViewModels
             // Full Pipeline Export Command
             ExportFullPipelineCommand = new AsyncRelayCommand(
                 execute: async _ => await ExportFullPipelineAsync());
+
+            // Refined XLSX Export Command (ClosedXML)
+            ExportRefinedXlsxCommand = new AsyncRelayCommand(
+                execute: async _ => await ExportRefinedXlsxAsync());
 
             // Phase 18: Test Mesh Export Command
             ExportTestMeshCommand = new AsyncRelayCommand(
@@ -1561,8 +1506,6 @@ namespace DXTnavis.ViewModels
                 _filterDebounceTimer = null;
             }
 
-            // Phase 14: OntologyVM 정리
-            (_ontologyVM as IDisposable)?.Dispose();
         }
 
         #endregion

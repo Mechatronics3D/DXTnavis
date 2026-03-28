@@ -4,7 +4,7 @@
 
 **Navisworks 2025 BIM Data Extraction & 4D Automation Plugin**
 
-[![Version](https://img.shields.io/badge/Version-1.7.0-blue?style=flat-square)]()
+[![Version](https://img.shields.io/badge/Version-1.7.1-blue?style=flat-square)]()
 [![Navisworks](https://img.shields.io/badge/Navisworks-2025-FF6D00?style=flat-square&logo=autodesk&logoColor=white)](https://www.autodesk.com/products/navisworks)
 [![.NET](https://img.shields.io/badge/.NET_Framework-4.8-512BD4?style=flat-square&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 [![WPF](https://img.shields.io/badge/WPF-MVVM-0078D4?style=flat-square&logo=windows&logoColor=white)]()
@@ -17,7 +17,7 @@
 *BIM 모델에서 속성, 기하정보, 3D 메시를 추출하고 4D 시뮬레이션을 자동화하는 Navisworks 플러그인*
 *SP3D Pipeline 스케줄 자동 생성 지원*
 
-[Impact](#-impact) | [Features](#-features) | [Architecture](#-architecture) | [Quick Start](#-quick-start) | [Changelog](CHANGELOG.md)
+[Impact](#-impact) | [Features](#-features) | [Architecture](#-architecture) | [Pipeline 4D Guide](#pipeline-4d-step-by-step-guide) | [Quick Start](#-quick-start) | [Changelog](CHANGELOG.md)
 
 ---
 
@@ -165,9 +165,12 @@ CSV File ──→ Schedule Parser ──→ Object Matcher ──→ Property W
 > *"SP3D Pipeline 프로젝트에서 외부 스케줄 없이 TimeLiner 4D 시뮬레이션 자동 생성"*
 
 ```
-AllProperties CSV ──→ Pipeline/PipeRun 추출 ──→ 그룹핑 ──→ Time Mapping ──→ TimeLiner
- (DisplayString:       (자동 컬럼 감지)      (146 Pipeline  (Hybrid 전략)    Task + Set
-  접두사 제거)                                 334 PipeRun)                   자동 생성
+AllProperties CSV ──→ Pipeline/PipeRun 추출 ──→ 그룹핑 ──→ Time Mapping ──→ Selection Set + CSV Export
+ (DisplayString:       (자동 컬럼 감지)      (146 Pipeline  (Hybrid 전략)    ├→ PipeRun별 3D Selection Set
+  접두사 제거)                                 334 PipeRun)                   └→ TimeLiner Import용 CSV
+
+CSV Import ──→ TimeLiner "다시 작성" ──→ "작업 자동 추가 > 모든 세트에 대해" ──→ 4D Simulation
+ (Field Selector)  (Task 계층 생성)      (Selection Set ↔ Task 자동 연결)        (시공 시뮬레이션)
 ```
 
 <table>
@@ -189,8 +192,8 @@ AllProperties CSV ──→ Pipeline/PipeRun 추출 ──→ 그룹핑 ──�
 </td>
 <td align="center" width="25%">
 <h3>🚀</h3>
-<b>1-Click Execute</b><br/>
-<sub>Selection Set + TimeLiner<br/>DryRun, CSV Export</sub>
+<b>Selection Set + CSV</b><br/>
+<sub>PipeRun별 3D Set 생성<br/>TimeLiner CSV Export</sub>
 </td>
 </tr>
 </table>
@@ -279,8 +282,9 @@ Navisworks는 두 가지 API를 제공합니다. DXTnavis는 용도에 맞게 �
 |---------|-----|--------|
 | Property Read | .NET API | 표준 데이터 접근 |
 | **Property Write** | **ComAPI** | .NET API는 Read-Only |
-| Selection Set | .NET API | AddCopy/InsertCopy 메서드 |
-| TimeLiner Task | .NET API | TasksCopyFrom 메서드 |
+| Selection Set | .NET API | AddCopy/InsertCopy (fresh traversal) |
+| TimeLiner Task | .NET API | 2-Phase: TasksCopyFrom → Selection Link |
+| TimeLiner ↔ Set 연결 | **Navisworks UI** | "작업 자동 추가 > 모든 세트에 대해" |
 | 3D Viewport | .NET API | Selection, Visibility |
 | **Mesh Extract** | **ComAPI** | GenerateSimplePrimitives() |
 | **ViewPoint Save** | **ComAPI** | .NET API 미지원 기능 |
@@ -306,6 +310,127 @@ Navisworks는 두 가지 API를 제공합니다. DXTnavis는 용도에 맞게 �
                           │  PipelineSchedule│
                           └─────────────────┘
 ```
+
+---
+
+## Pipeline 4D: Step-by-Step Guide
+
+### Overview
+
+Pipeline 4D는 SP3D Pipeline 모델에서 외부 스케줄 없이 TimeLiner 4D 시뮬레이션을 자동 생성합니다.
+PipeRun 단위로 Selection Set과 Schedule CSV를 생성하고, Navisworks TimeLiner에서 3D 객체와 연결합니다.
+
+### Step 1: AllProperties CSV 내보내기
+
+1. DXTnavis 플러그인의 **Search Set** 탭에서 프로젝트 전체 선택
+2. **Export** 영역에서 **AllProperties** 버튼 클릭
+3. 저장 경로 선택 → CSV 파일 생성
+
+> AllProperties CSV에는 `Pipeline`, `PipeRun` 컬럼이 포함됩니다.
+> `DisplayString:P-015` 형태의 접두사는 자동으로 제거됩니다.
+
+### Step 2: Pipeline 4D 스케줄 생성
+
+1. **Pipeline 4D** 탭으로 이동
+2. **CSV 파일 로드**: Step 1에서 생성한 AllProperties CSV 선택
+3. Pipeline/PipeRun 컬럼이 자동 감지됨을 확인
+4. **시간 매핑 설정** (기본값 권장):
+   - 전략: Hybrid (base + per-object)
+   - 기본 시간: 8시간
+   - 객체당 추가: 0.5시간
+   - 근무시간: 8시간/일
+5. **Preview** 버튼으로 스케줄 미리보기
+
+### Step 3: Selection Set + CSV 내보내기 실행
+
+1. **Execute** 버튼 클릭 → 다음이 자동 실행됩니다:
+   - **Selection Set 생성**: `Pipeline Sets/{Pipeline}/{Pipeline_PipeRun}` 계층 구조
+   - 각 PipeRun의 3D 객체가 해당 Selection Set에 등록됩니다
+2. **CSV Export** 버튼 클릭 → TimeLiner Import용 CSV 생성
+
+**생성되는 CSV 형식** (Navisworks Field Selector 호환):
+```csv
+작업 이름,동기화 ID,작업 유형,계획된 시작 날짜,계획된 끝 날짜
+P-015\P-015_Dist.Unit B01-4-P-0102,Dist.Unit B01-4-P-0102,구성,2026-01-15,2026-01-18
+P-015\P-015_Dist.Unit B01-4-P-0103,Dist.Unit B01-4-P-0103,구성,2026-01-18,2026-01-20
+```
+
+> **참고**: `작업 이름`의 `\` (백슬래시)는 TimeLiner에서 계층 구조를 생성합니다.
+> TaskName에 Pipeline 접두사가 붙어 중복을 방지합니다 (예: `P-015_PipeRunName`).
+
+### Step 4: TimeLiner에 CSV 가져오기
+
+1. Navisworks **TimeLiner** 패널 열기
+2. **데이터 소스** 탭 → **추가** → **CSV (쉼표로 구분된 값)**
+3. Step 3에서 생성한 CSV 파일 선택
+4. **필드 선택기** 대화상자에서 컬럼 매핑 확인:
+   | CSV 컬럼 | TimeLiner 필드 |
+   |---------|---------------|
+   | 작업 이름 | 작업 이름 |
+   | 동기화 ID | 동기화 ID |
+   | 작업 유형 | 작업 유형 |
+   | 계획된 시작 날짜 | 계획된 시작 |
+   | 계획된 끝 날짜 | 계획된 끝 |
+5. **"다시 작성"** 클릭 (최초 가져오기 시)
+   - 이후 업데이트 시에는 **"동기화"** 사용
+
+### Step 5: Selection Set ↔ Task 연결
+
+1. TimeLiner **작업** 탭에서 아무 작업 하나를 **우클릭**
+2. **"작업 자동 추가"** → **"모든 세트에 대해"** 클릭
+3. Selection Set 이름과 Task leaf 이름이 매칭되어 3D 객체가 자동 연결됨
+
+> **중요**: "규칙을 사용하여 자동 연결" > "작업에 항목 연결" 기능은 이 워크플로우에서 동작하지 않습니다.
+> 반드시 **"작업 자동 추가 > 모든 세트에 대해"**를 사용하세요.
+
+### Step 6: 4D 시뮬레이션 실행
+
+1. TimeLiner **시뮬레이트** 탭으로 이동
+2. **재생** 버튼으로 4D 시공 시뮬레이션 확인
+3. 각 PipeRun이 계획된 날짜에 따라 순차적으로 나타남
+
+### Pipeline 4D Output Summary
+
+```
+Navisworks 내부:
+├── Selection Sets/
+│   └── Pipeline Sets/
+│       ├── P-015/
+│       │   ├── P-015_Dist.Unit B01-4-P-0102  (18 objects)
+│       │   ├── P-015_Dist.Unit B01-4-P-0103  (5 objects)
+│       │   └── ...
+│       ├── P-016/
+│       │   └── ...
+│       └── ... (146 Pipelines)
+│
+├── TimeLiner Tasks/
+│   └── Pipeline Schedule/
+│       ├── P-015/
+│       │   ├── P-015_Dist.Unit B01-4-P-0102  Jan15→Jan18
+│       │   ├── P-015_Dist.Unit B01-4-P-0103  Jan18→Jan20
+│       │   └── ...
+│       └── ... (334 PipeRuns = 334 Tasks)
+│
+외부 파일:
+└── pipeline_schedule_YYYYMMDD_HHMMSS.csv   (TimeLiner Import용)
+```
+
+### Key Technical Details
+
+| 항목 | 설명 |
+|------|------|
+| **Selection Set 이름** | `{Pipeline}_{PipeRun}` (중복 방지) |
+| **CSV 인코딩** | CP949 (한국어 Navisworks 호환) |
+| **날짜 형식** | `yyyy-MM-dd` (Field Selector 호환) |
+| **Task 계층** | 백슬래시(`\`)로 Parent\Child 구조 |
+| **객체 연결 방식** | "작업 자동 추가 > 모든 세트에 대해" |
+| **시간 계산** | Hybrid: `BaseDuration + ObjectCount × HoursPerObject` |
+
+### Limitations
+
+- 현재 **Pipeline 객체만** 4D 시뮬레이션에 포함됩니다 (구조물, 장비 등은 별도 Set 필요)
+- "작업 자동 추가" 단계는 수동으로 실행해야 합니다 (Navisworks UI 한계)
+- AllProperties CSV 내보내기 시 대용량 모델은 1~2분 소요될 수 있습니다
 
 ---
 
@@ -364,9 +489,21 @@ Fallback 순서: InstanceGuid → Item GUID → Authoring ID → Hierarchy Path 
 1. Visual Studio 2022에서 DXTnavis.sln 열고 빌드 (Release x64)
 2. Navisworks Manage 2025 실행 → Home 탭 → DXTnavis 클릭
 3. 계층 구조 로드 → 필터링 → 3D 제어
-4. AWP 4D 탭에서 스케줄 CSV 로드 → Execute
-5. Full Pipeline으로 Geometry + Mesh + Spatial 통합 Export
+4. Full Pipeline으로 Geometry + Mesh + Spatial 통합 Export
 ```
+
+### Pipeline 4D Quick Start
+
+```
+1. Search Set 탭에서 프로젝트 전체 선택 → AllProperties CSV 내보내기
+2. Pipeline 4D 탭에서 CSV 로드 → Preview → Execute (Selection Set 생성)
+3. CSV Export 버튼으로 TimeLiner 스케줄 CSV 생성
+4. TimeLiner 데이터 소스 → CSV 추가 → 필드 매핑 → "다시 작성"
+5. TimeLiner 작업 우클릭 → "작업 자동 추가" → "모든 세트에 대해"
+6. 시뮬레이트 탭에서 4D 시공 시뮬레이션 재생
+```
+
+> 상세 가이드: [Pipeline 4D: Step-by-Step Guide](#pipeline-4d-step-by-step-guide)
 
 ---
 
@@ -397,8 +534,8 @@ MSBuild DXTnavis.csproj /p:Configuration=Release /p:Platform=x64
 
 ```
 Phases:  █████████████████████ 19/19 Complete
-Version: v1.7.0 (2026-03-22)
-Period:  2025-12-29 ~ 2026-03-22 (84 days)
+Version: v1.7.1 (2026-03-23)
+Period:  2025-12-29 ~ 2026-03-23 (85 days)
 ```
 
 | Phase | Feature | Version | Status |
@@ -427,7 +564,8 @@ Period:  2025-12-29 ~ 2026-03-22 (84 days)
 
 | Version | Key Feature | Date |
 |:-------:|-------------|:----:|
-| **v1.7.0** | **Pipeline 4D Schedule Builder** | 2026-03-22 |
+| **v1.7.1** | **Pipeline 4D Workflow Complete** | 2026-03-23 |
+| v1.7.0 | Pipeline 4D Schedule Builder | 2026-03-22 |
 | v1.6.0 | 3D Mesh GLB Export (glTF 2.0) | 2026-02-14 |
 | v1.5.0 | Unified CSV + Spatial Connectivity | 2026-02-10 |
 | v1.4.0 | Geometry Export (BBox/Centroid/RDF) | 2026-02-06 |
@@ -558,6 +696,6 @@ dxtnavis/
 
 ---
 
-<sub>Last Updated: 2026-03-22 | v1.7.0 | 19 Phases Complete</sub>
+<sub>Last Updated: 2026-03-23 | v1.7.1 | 19 Phases Complete</sub>
 
 </div>

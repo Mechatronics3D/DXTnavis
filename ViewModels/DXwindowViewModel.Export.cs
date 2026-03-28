@@ -108,12 +108,9 @@ namespace DXTnavis.ViewModels
                     ExportStatusMessage = report.message;
                 });
 
-                // 백그라운드 스레드에서 실행
-                await Task.Run(() =>
-                {
-                    var exporter = new FullModelExporterService();
-                    exporter.ExportAllPropertiesToCsv(saveDialog.FileName, progress);
-                });
+                // UI 스레드에서 실행 (Navisworks API는 STA 스레드 필수)
+                var exporter = new FullModelExporterService();
+                exporter.ExportAllPropertiesToCsv(saveDialog.FileName, progress);
 
                 ExportStatusMessage = "✅ 내보내기 완료!";
 
@@ -129,6 +126,63 @@ namespace DXTnavis.ViewModels
 
                 MessageBox.Show(
                     $"전체 내보내기 중 오류가 발생했습니다:\n\n{ex.Message}",
+                    "오류",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+            finally
+            {
+                IsExporting = false;
+            }
+        }
+
+        /// <summary>
+        /// Refining_ObjectID_Latest.xlsx 스타일의 서식이 적용된 XLSX 워크북을 내보내기
+        /// 5개 시트: Pivot, Pipeline Summary, Class Distribution, Equipment Summary, PipeRun Detail
+        /// </summary>
+        private async Task ExportRefinedXlsxAsync()
+        {
+            try
+            {
+                var saveDialog = new SaveFileDialog
+                {
+                    Filter = "Excel 파일|*.xlsx",
+                    DefaultExt = "xlsx",
+                    FileName = $"Refining_ObjectID_{DateTime.Now:yyyyMMdd_HHmmss}"
+                };
+
+                if (saveDialog.ShowDialog() != true) return;
+
+                // UI 상태 초기화
+                IsExporting = true;
+                ExportProgressPercentage = 0;
+                ExportStatusMessage = "Refined XLSX 내보내기 시작 중...";
+
+                // 진행률 보고를 위한 Progress 인스턴스
+                var progress = new Progress<(int percentage, string message)>(report =>
+                {
+                    ExportProgressPercentage = report.percentage;
+                    ExportStatusMessage = report.message;
+                });
+
+                // UI 스레드에서 실행 (Navisworks API는 STA 스레드 필수)
+                var exporter = new RefinedXlsxExporter();
+                exporter.Export(saveDialog.FileName, progress);
+
+                ExportStatusMessage = "Refined XLSX 내보내기 완료!";
+
+                MessageBox.Show(
+                    $"Refined XLSX가 성공적으로 저장되었습니다.\n\n{saveDialog.FileName}",
+                    "내보내기 완료",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                ExportStatusMessage = $"오류 발생: {ex.Message}";
+
+                MessageBox.Show(
+                    $"Refined XLSX 내보내기 중 오류가 발생했습니다:\n\n{ex.Message}",
                     "오류",
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
@@ -1374,8 +1428,9 @@ namespace DXTnavis.ViewModels
         #region Full Pipeline Export (Unified CSV + Spatial + Mesh)
 
         /// <summary>
-        /// 전체 파이프라인: Unified CSV + Geometry + Mesh GLB + Spatial Adjacency 통합 출력
+        /// 전체 파이프라인: AllProperties CSV + Unified CSV + Geometry + Mesh GLB + Spatial Adjacency 통합 출력
         /// Phase 18: Mesh GLB export 추가
+        /// Stage 0: AllProperties CSV 생성 추가
         /// </summary>
         private async System.Threading.Tasks.Task ExportFullPipelineAsync()
         {
@@ -1404,29 +1459,42 @@ namespace DXTnavis.ViewModels
                 ExportProgressPercentage = 0;
                 var sw = System.Diagnostics.Stopwatch.StartNew();
 
-                // ──── Stage 1/5: Hierarchy 데이터 추출 ────
-                ExportStatusMessage = "[1/5] Hierarchy 데이터 추출 중...";
+                // ──── Stage 0/6: AllProperties CSV ────
+                ExportStatusMessage = "[0/6] AllProperties CSV 생성 중...";
+                var allPropertiesPath = System.IO.Path.Combine(outputDir,
+                    string.Format("AllProperties_{0:yyyyMMdd_HHmmss}.csv", DateTime.Now));
+                var allPropExporter = new Services.FullModelExporterService();
+                allPropExporter.ExportAllPropertiesToCsv(allPropertiesPath,
+                    new Progress<(int percentage, string message)>(report =>
+                    {
+                        ExportProgressPercentage = report.percentage / 10;
+                        ExportStatusMessage = "[0/6] " + report.message;
+                    }));
+                ExportProgressPercentage = 10;
+
+                // ──── Stage 1/6: Hierarchy 데이터 추출 ────
+                ExportStatusMessage = "[1/6] Hierarchy 데이터 추출 중...";
 
                 var unifiedPath = System.IO.Path.Combine(outputDir, "unified.csv");
                 var hierarchyExtractor = new NavisworksDataExtractor();
                 var hierarchyRecords = hierarchyExtractor.ExtractAllHierarchicalRecords();
 
-                ExportStatusMessage = string.Format("[1/5] Hierarchy 추출 완료: {0:N0}개 속성", hierarchyRecords.Count);
-                ExportProgressPercentage = 20;
+                ExportStatusMessage = string.Format("[1/6] Hierarchy 추출 완료: {0:N0}개 속성", hierarchyRecords.Count);
+                ExportProgressPercentage = 25;
 
-                // ──── Stage 2/5: Geometry BBox 추출 ────
-                ExportStatusMessage = "[2/5] Geometry 추출 중...";
+                // ──── Stage 2/6: Geometry BBox 추출 ────
+                ExportStatusMessage = "[2/6] Geometry 추출 중...";
 
                 var geoExtractor = new Services.Geometry.GeometryExtractor();
-                geoExtractor.ProgressChanged += (s, p) => ExportProgressPercentage = 20 + p / 5;
-                geoExtractor.StatusChanged += (s, msg) => ExportStatusMessage = "[2/5] " + msg;
+                geoExtractor.ProgressChanged += (s, p) => ExportProgressPercentage = 25 + (int)(p * 0.15);
+                geoExtractor.StatusChanged += (s, msg) => ExportStatusMessage = "[2/6] " + msg;
 
                 var geometries = geoExtractor.ExtractFromDocument(doc);
 
                 ExportProgressPercentage = 40;
 
-                // ──── Stage 3/5: Mesh GLB 추출 ────
-                ExportStatusMessage = string.Format("[3/5] Mesh GLB 추출 중... ({0:N0}개 객체)", geometries.Count);
+                // ──── Stage 3/6: Mesh GLB 추출 ────
+                ExportStatusMessage = string.Format("[3/6] Mesh GLB 추출 중... ({0:N0}개 객체)", geometries.Count);
 
                 var meshDir = System.IO.Path.Combine(outputDir, "mesh");
                 System.IO.Directory.CreateDirectory(meshDir);
@@ -1513,7 +1581,7 @@ namespace DXTnavis.ViewModels
 
                 using (var meshExtractor = new Services.Geometry.MeshExtractor())
                 {
-                    meshExtractor.StatusChanged += (s, msg) => ExportStatusMessage = "[3/5] " + msg;
+                    meshExtractor.StatusChanged += (s, msg) => ExportStatusMessage = "[3/6] " + msg;
 
                     // Phase 25: leaf 아이템만 mesh 추출 (container는 Fragments()가 하위 포함 → 중복 방지)
                     var allItems = new List<KeyValuePair<Guid, ModelItem>>(modelItemMap);
@@ -1521,7 +1589,7 @@ namespace DXTnavis.ViewModels
                     int meshProcessed = 0;
                     int meshTotal = allItems.Count;
 
-                    ExportStatusMessage = string.Format("[3/5] Mesh GLB 추출 중... ({0:N0}개 객체)", meshTotal);
+                    ExportStatusMessage = string.Format("[3/6] Mesh GLB 추출 중... ({0:N0}개 객체)", meshTotal);
 
                     foreach (var kvp in allItems)
                     {
@@ -1673,11 +1741,11 @@ namespace DXTnavis.ViewModels
 
                     if (fbxTargetItems.Count > 0)
                     {
-                        ExportStatusMessage = string.Format("[3/5] FBX fallback: {0}개 객체 export 중 (gap={1}, partial={2})...",
+                        ExportStatusMessage = string.Format("[3/6] FBX fallback: {0}개 객체 export 중 (gap={1}, partial={2})...",
                             fbxTargetItems.Count, gapCount, partialNoGeoCount);
 
                         var fbxService = new Services.Geometry.FbxExportService();
-                        fbxService.StatusChanged += (s, msg) => ExportStatusMessage = "[3/5] FBX: " + msg;
+                        fbxService.StatusChanged += (s, msg) => ExportStatusMessage = "[3/6] FBX: " + msg;
 
                         var fbxPath = System.IO.Path.Combine(outputDir, "gap_fallback.fbx");
                         bool fbxSuccess = fbxService.ExportTargetItemsAsFbx(fbxTargetItems, fbxPath);
@@ -1771,7 +1839,7 @@ namespace DXTnavis.ViewModels
                 geoWriter.WriteCsv(geometries, System.IO.Path.Combine(outputDir, "geometry.csv"));
                 geoWriter.WriteManifest(geometries, outputDir);
 
-                // ──── Stage 4/5: Adjacency 검출 (leaf 노드만 대상) ────
+                // ──── Stage 4/6: Adjacency 검출 (leaf 노드만 대상) ────
                 // Phase 28: container 노드 제외 — BBox가 자식 전체를 포함하므로
                 // spatial hash grid에서 너무 많은 쌍을 생성하여 leaf-leaf 인접 누락 유발
                 var leafGeometries = new Dictionary<Guid, Models.Geometry.GeometryRecord>();
@@ -1787,11 +1855,11 @@ namespace DXTnavis.ViewModels
                     string.Format("[FullPipeline] Phase 28: Adjacency leaf filter: {0} total → {1} leaf nodes (skipped {2} containers/hidden)",
                         geometries.Count, leafGeometries.Count, geometries.Count - leafGeometries.Count));
 
-                ExportStatusMessage = string.Format("[4/5] Adjacency 검출 중... ({0:N0}개 leaf 객체)", leafGeometries.Count);
+                ExportStatusMessage = string.Format("[4/6] Adjacency 검출 중... ({0:N0}개 leaf 객체)", leafGeometries.Count);
 
                 var detector = new Services.Spatial.AdjacencyDetector();
                 detector.ProgressChanged += (s, p) => ExportProgressPercentage = 60 + p / 5;
-                detector.StatusChanged += (s, msg) => ExportStatusMessage = "[4/5] " + msg;
+                detector.StatusChanged += (s, msg) => ExportStatusMessage = "[4/6] " + msg;
 
                 var adjacencies = detector.Detect(leafGeometries);
 
@@ -1800,21 +1868,21 @@ namespace DXTnavis.ViewModels
                 var groups = componentFinder.FindAndCompute(adjacencies, geometries);
                 ExportProgressPercentage = 80;
 
-                // ──── Stage 5/5: 파일 출력 ────
-                ExportStatusMessage = "[5/5] 파일 저장 중...";
+                // ──── Stage 5/6: 파일 출력 ────
+                ExportStatusMessage = "[5/6] 파일 저장 중...";
 
                 var spatialWriter = new Services.Spatial.SpatialRelationshipWriter();
-                spatialWriter.StatusChanged += (s, msg) => ExportStatusMessage = "[5/5] " + msg;
+                spatialWriter.StatusChanged += (s, msg) => ExportStatusMessage = "[5/6] " + msg;
 
                 spatialWriter.WriteAdjacencyCsv(adjacencies, outputDir);
                 spatialWriter.WriteGroupsCsv(groups, outputDir);
                 spatialWriter.WriteTtl(adjacencies, groups, outputDir);
 
                 // ──── Phase 29: Object Validation CSV ────
-                ExportStatusMessage = "[5/5] 객체 검증 중...";
+                ExportStatusMessage = "[5/6] 객체 검증 중...";
                 var validationService = new Services.Validation.ObjectValidationService();
                 validationService.ProgressChanged += (s, p) => ExportProgressPercentage = 85 + p / 10;
-                validationService.StatusChanged += (s, msg) => ExportStatusMessage = "[5/5] " + msg;
+                validationService.StatusChanged += (s, msg) => ExportStatusMessage = "[5/6] " + msg;
 
                 var validationRecords = validationService.Validate(
                     geometries, modelItemMap,
@@ -1825,13 +1893,19 @@ namespace DXTnavis.ViewModels
                 validationService.WriteCsv(validationRecords, outputDir);
                 ExportProgressPercentage = 95;
 
-                // Phase 29: Verdict 집계
+                // Phase 29+31: Verdict 집계
                 int verdictFailCount = 0;
                 int verdictWarnCount = 0;
+                int verdictGlbMissing = 0;
+                int verdictGlbEmpty = 0;
+                int verdictFbxBatchOnly = 0;
                 foreach (var vr in validationRecords)
                 {
                     if (vr.Verdict == "FAIL_NO_EXTRACT") verdictFailCount++;
                     if (vr.Verdict == "WARN_BOX") verdictWarnCount++;
+                    if (vr.Verdict == "FAIL_GLB_MISSING") verdictGlbMissing++;
+                    if (vr.Verdict == "FAIL_GLB_EMPTY") verdictGlbEmpty++;
+                    if (vr.Verdict == "WARN_FBX_BATCH_ONLY") verdictFbxBatchOnly++;
                 }
 
                 sw.Stop();
@@ -1860,16 +1934,20 @@ namespace DXTnavis.ViewModels
                         + "── Spatial ──\n"
                         + "  인접 관계: {3:N0}\n"
                         + "  연결 그룹: {4:N0}\n\n"
-                        + "── Phase 29 검증 ──\n"
+                        + "── Phase 31 검증 ──\n"
                         + "  FAIL_NO_EXTRACT: {15:N0}개\n"
-                        + "  WARN_BOX: {16:N0}개\n\n"
+                        + "  FAIL_GLB_MISSING: {17:N0}개\n"
+                        + "  FAIL_GLB_EMPTY: {18:N0}개\n"
+                        + "  WARN_BOX: {16:N0}개\n"
+                        + "  WARN_FBX_BATCH_ONLY: {19:N0}개\n\n"
                         + "처리 시간: {5:F1}초\n"
                         + "저장 위치: {6}",
                         unifiedCount, geometries.Count, meshCount,
                         adjacencies.Count, groups.Count,
                         sw.Elapsed.TotalSeconds, outputDir, containerIds.Count, fallbackCount,
                         noGeometryCount, hiddenCount, noFragmentCount, allStratFailCount,
-                        fbxFallbackCount, partialContainerCount, verdictFailCount, verdictWarnCount),
+                        fbxFallbackCount, partialContainerCount, verdictFailCount, verdictWarnCount,
+                        verdictGlbMissing, verdictGlbEmpty, verdictFbxBatchOnly),
                     "Full Pipeline Export",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);

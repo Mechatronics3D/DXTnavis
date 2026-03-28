@@ -35,6 +35,30 @@
     <RunPostBuildEvent>OnOutputUpdated</RunPostBuildEvent>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="ClosedXML">
+      <HintPath>packages\ClosedXML.0.102.3\lib\netstandard2.0\ClosedXML.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="DocumentFormat.OpenXml, Version=2.16.0.0, Culture=neutral, PublicKeyToken=8fb06cb64d019a17, processorArchitecture=MSIL">
+      <HintPath>packages\DocumentFormat.OpenXml.2.16.0\lib\net46\DocumentFormat.OpenXml.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.IO.Packaging, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <HintPath>packages\System.IO.Packaging.6.0.0\lib\net461\System.IO.Packaging.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Irony, Version=1.0.11.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>packages\Irony.NetCore.1.0.11\lib\net461\Irony.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="SixLabors.Fonts">
+      <HintPath>packages\SixLabors.Fonts.1.0.0\lib\netstandard2.0\SixLabors.Fonts.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="XLParser">
+      <HintPath>packages\XLParser.1.5.2\lib\net461\XLParser.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="Autodesk.Navisworks.Api">
       <HintPath>..\..\..\..\..\..\..\Program Files\Autodesk\Navisworks Manage 2025\Autodesk.Navisworks.Api.dll</HintPath>
       <Private>False</Private>
@@ -124,40 +148,6 @@
       <HintPath>packages\System.ValueTuple.4.5.0\lib\net47\System.ValueTuple.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <!-- Phase 14/15: 임시 비활성화 - 플러그인 로딩 테스트
-    <Reference Include="dotNetRdf">
-      <HintPath>packages\dotNetRdf.Core.3.4.1\lib\netstandard2.0\dotNetRdf.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="VDS.Common">
-      <HintPath>packages\VDS.Common.3.0.0\lib\netstandard2.0\VDS.Common.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="YamlDotNet">
-      <HintPath>packages\YamlDotNet.15.1.0\lib\net47\YamlDotNet.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="FuzzySharp">
-      <HintPath>packages\FuzzySharp.2.0.2\lib\netstandard2.0\FuzzySharp.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="AngleSharp">
-      <HintPath>packages\AngleSharp.1.3.0\lib\netstandard2.0\AngleSharp.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="HtmlAgilityPack">
-      <HintPath>packages\HtmlAgilityPack.1.12.3\lib\netstandard2.0\HtmlAgilityPack.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="System.Text.Encoding.CodePages">
-      <HintPath>packages\System.Text.Encoding.CodePages.8.0.0\lib\net462\System.Text.Encoding.CodePages.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="Neo4j.Driver">
-      <HintPath>packages\Neo4j.Driver.5.15.0\lib\netstandard2.0\Neo4j.Driver.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    -->
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xaml" />
@@ -205,22 +195,13 @@
     <Compile Include="Services\Geometry\GeometryExtractor.cs" />
     <Compile Include="Services\Geometry\GeometryFileWriter.cs" />
     <Compile Include="Services\Geometry\MeshExtractor.cs" />
-    <Compile Include="Services\Geometry\ParametricMeshGenerator.cs" />
     <Compile Include="Services\Geometry\FbxExportService.cs" />
-    <Compile Include="Services\Geometry\GeometryRdfIntegrator.cs" />
     <!-- Phase 29: Object Validation -->
     <Compile Include="Models\Validation\ObjectValidationRecord.cs" />
     <Compile Include="Services\Validation\ObjectValidationService.cs" />
-    <!-- Phase 14/15: 임시 비활성화 - 플러그인 로딩 테스트
-    <Compile Include="Models\Ontology\OntologyRules.cs" />
-    <Compile Include="Models\Ontology\ConversionResult.cs" />
-    <Compile Include="Models\Ontology\InferenceResult.cs" />
-    <Compile Include="Models\Ontology\OntologyStatistics.cs" />
-    <Compile Include="Models\ScheduleValidation\ScheduleValidationReport.cs" />
-    <Compile Include="Models\ScheduleValidation\ScheduleValidationOptions.cs" />
-    <Compile Include="Models\AutoOrdering\AutoOrderingModels.cs" />
-    -->
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <!-- Refined XLSX Export (ClosedXML) -->
+    <Compile Include="Services\RefinedXlsxExporter.cs" />
     <Compile Include="Services\FullModelExporterService.cs" />
     <Compile Include="Services\PropertyFileWriter.cs" />
     <Compile Include="Services\NavisworksDataExtractor.cs" />
@@ -231,24 +212,8 @@
     <Compile Include="Services\DisplayStringParser.cs" />
     <Compile Include="Services\PropertyWriteService.cs" />
     <Compile Include="Services\ObjectMatcher.cs" />
-    <Compile Include="Services\ScheduleCsvParser.cs" />
     <Compile Include="Services\SelectionSetService.cs" />
     <Compile Include="Services\TimeLinerService.cs" />
-    <!-- Phase 14/15: 임시 비활성화 - 플러그인 로딩 테스트
-    <Compile Include="Services\Ontology\RuleEngine.cs" />
-    <Compile Include="Services\Ontology\HierarchyToRdfConverter.cs" />
-    <Compile Include="Services\Ontology\InferenceEngine.cs" />
-    <Compile Include="Services\Ontology\OntologyService.cs" />
-    <Compile Include="Services\Ontology\OntologyQueryService.cs" />
-    <Compile Include="Services\Ontology\Neo4jQueryService.cs" />
-    <Compile Include="Services\ScheduleValidationService.cs" />
-    <Compile Include="Services\TimeLinerAutoOrderingService.cs" />
-    -->
-    <Compile Include="Services\AWP4DAutomationService.cs" />
-    <Compile Include="Services\AWP4DValidator.cs" />
-    <Compile Include="ViewModels\AWP4DViewModel.cs" />
-    <Compile Include="ViewModels\CsvViewerViewModel.cs" />
-    <Compile Include="ViewModels\ScheduleBuilderViewModel.cs" />
     <Compile Include="ViewModels\ObjectGroupViewModel.cs" />
     <Compile Include="ViewModels\DXwindowViewModel.cs" />
     <Compile Include="ViewModels\DXwindowViewModel.Export.cs" />
@@ -258,9 +223,6 @@
     <Compile Include="ViewModels\DXwindowViewModel.Snapshot.cs" />
     <Compile Include="ViewModels\DXwindowViewModel.Tree.cs" />
     <Compile Include="ViewModels\HierarchyNodeViewModel.cs" />
-    <!-- Phase 14: 임시 비활성화
-    <Compile Include="ViewModels\OntologyViewModel.cs" />
-    -->
     <Compile Include="ViewModels\PropertyItemViewModel.cs" />
     <Compile Include="Views\DXwindow.xaml.cs">
       <DependentUpon>DXwindow.xaml</DependentUpon>
@@ -280,26 +242,19 @@
     <None Include="app.config" />
     <None Include="packages.config" />
   </ItemGroup>
-  <!-- Phase 14: Ontology Resources - 임시 비활성화
-  <ItemGroup>
-    <Content Include="Resources\Ontology\dxtnavis-schema.ttl">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Resources\Ontology\dxtnavis-rules.yaml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-  -->
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>echo === DXTnavis PostBuild Deploy ===
 powershell -Command "if (Get-Process -Name Roamer -ErrorAction SilentlyContinue) { Write-Host '[WARNING] Closing Navisworks...'; Stop-Process -Name Roamer -Force; Start-Sleep -Seconds 2; Write-Host '[OK] Navisworks closed.' }"
-echo === Copy Main DLL to Plugins root ===
-copy /Y "$(TargetPath)" "C:\Program Files\Autodesk\Navisworks Manage 2025\Plugins\"
-copy /Y "$(TargetDir)$(TargetName).pdb" "C:\Program Files\Autodesk\Navisworks Manage 2025\Plugins\"
-echo === Copy Main DLL to Plugins\DXTnavis subfolder ===
+echo === Copy to Plugins\DXTnavis subfolder ===
 copy /Y "$(TargetPath)" "C:\Program Files\Autodesk\Navisworks Manage 2025\Plugins\DXTnavis\"
 copy /Y "$(TargetDir)$(TargetName).pdb" "C:\Program Files\Autodesk\Navisworks Manage 2025\Plugins\DXTnavis\"
+if exist "$(TargetDir)ClosedXML.dll" copy /Y "$(TargetDir)ClosedXML.dll" "C:\Program Files\Autodesk\Navisworks Manage 2025\Plugins\DXTnavis\"
+if exist "$(TargetDir)DocumentFormat.OpenXml.dll" copy /Y "$(TargetDir)DocumentFormat.OpenXml.dll" "C:\Program Files\Autodesk\Navisworks Manage 2025\Plugins\DXTnavis\"
+if exist "$(TargetDir)SixLabors.Fonts.dll" copy /Y "$(TargetDir)SixLabors.Fonts.dll" "C:\Program Files\Autodesk\Navisworks Manage 2025\Plugins\DXTnavis\"
+if exist "$(TargetDir)Irony.dll" copy /Y "$(TargetDir)Irony.dll" "C:\Program Files\Autodesk\Navisworks Manage 2025\Plugins\DXTnavis\"
+if exist "$(TargetDir)XLParser.dll" copy /Y "$(TargetDir)XLParser.dll" "C:\Program Files\Autodesk\Navisworks Manage 2025\Plugins\DXTnavis\"
+if exist "$(TargetDir)System.IO.Packaging.dll" copy /Y "$(TargetDir)System.IO.Packaging.dll" "C:\Program Files\Autodesk\Navisworks Manage 2025\Plugins\DXTnavis\"
 echo === DXTnavis Deploy Complete ===
 exit /b 0</PostBuildEvent>
   </PropertyGroup>

@@ -11,6 +11,7 @@ using DXTnavis.Helpers;
 using DXTnavis.Models;
 using DXTnavis.Services;
 using Microsoft.Win32;
+using WinForms = System.Windows.Forms;
 
 namespace DXTnavis.ViewModels
 {
@@ -35,6 +36,7 @@ namespace DXTnavis.ViewModels
         private int _gapDays = 1;
         private string _selectedTimeStrategy = "Hybrid";
         private string _selectedOrderingStrategy = "알파벳순";
+        private bool _isByObject = false;
         private bool _isDryRun;
         private bool _isExecuting;
         private int _progress;
@@ -195,6 +197,34 @@ namespace DXTnavis.ViewModels
         }
 
         /// <summary>
+        /// Task 단위: 객체별 (true) / PipeRun별 (false)
+        /// </summary>
+        public bool IsByObject
+        {
+            get => _isByObject;
+            set
+            {
+                _isByObject = value;
+                OnPropertyChanged(nameof(IsByObject));
+                OnPropertyChanged(nameof(IsByPipeRun));
+            }
+        }
+
+        /// <summary>
+        /// Task 단위: PipeRun별 (IsByObject의 반전)
+        /// </summary>
+        public bool IsByPipeRun
+        {
+            get => !_isByObject;
+            set
+            {
+                _isByObject = !value;
+                OnPropertyChanged(nameof(IsByObject));
+                OnPropertyChanged(nameof(IsByPipeRun));
+            }
+        }
+
+        /// <summary>
         /// DryRun 모드
         /// </summary>
         public bool IsDryRun
@@ -341,10 +371,16 @@ namespace DXTnavis.ViewModels
                 PreviewItems.Clear();
                 foreach (var schedule in _lastResult.Schedules)
                 {
+                    var pipelineName = schedule.CustomProperties.ContainsKey("Pipeline")
+                        ? schedule.CustomProperties["Pipeline"] : schedule.ParentSet;
+                    var pipeRunName = schedule.CustomProperties.ContainsKey("PipeRun")
+                        ? schedule.CustomProperties["PipeRun"] : "";
+
                     PreviewItems.Add(new PipelinePreviewItem
                     {
-                        Pipeline = schedule.ParentSet,
-                        PipeRun = schedule.TaskName,
+                        Pipeline = pipelineName,
+                        PipeRun = pipeRunName,
+                        ObjectName = IsByObject ? schedule.TaskName : "",
                         ObjectCount = int.Parse(schedule.CustomProperties.ContainsKey("ObjectCount")
                             ? schedule.CustomProperties["ObjectCount"] : "0"),
                         Start = schedule.PlannedStartDate ?? DateTime.MinValue,
@@ -407,19 +443,25 @@ namespace DXTnavis.ViewModels
                     TimeLinerRootFolder = BuildOptions().TimeLinerRootFolder,
                     CreateHierarchicalTasks = true,
                     GroupingStrategy = GroupingStrategy.ByParentSet,
-                    TaskSelectionMode = TaskSelectionMode.Explicit,
+                    TaskSelectionMode = TaskSelectionMode.SelectionSource,
                     EnablePropertyWrite = false,
                     VerboseLogging = true
                 };
 
-                // Step 2: Object 매칭
-                StatusMessage = "2/4: 객체 매칭 중...";
+                // Step 2: Object 매칭 (InstanceGuid 기반)
+                StatusMessage = "2/4: InstanceGuid 맵 구축 중...";
                 Progress = 20;
+
+                // InstanceGuid 맵을 1회 구축 (모든 ModelItem의 InstanceGuid → ModelItem)
+                _objectMatcher.BuildInstanceGuidMap();
+                WinForms.Application.DoEvents();
 
                 int matchedCount = 0;
                 int failedCount = 0;
 
-                // PipeRun 단위 매칭: ObjectIds에서 개별 GUID 추출하여 매칭
+                StatusMessage = "2/4: 객체 매칭 중...";
+
+                // Pipeline 4D: ObjectIds에서 GUID 추출 → InstanceGuid로 직접 매칭
                 foreach (var schedule in scheduleDataList)
                 {
                     try
@@ -437,8 +479,7 @@ namespace DXTnavis.ViewModels
                                 Guid objGuid;
                                 if (Guid.TryParse(guidStr.Trim(), out objGuid))
                                 {
-                                    // 첫 번째 매칭된 객체의 GUID를 SyncID로 사용
-                                    var modelItem = _objectMatcher.FindBySyncId(guidStr.Trim(), awpOptions);
+                                    var modelItem = _objectMatcher.FindByInstanceGuid(objGuid);
                                     if (modelItem != null)
                                     {
                                         if (!anyMatched)
@@ -461,7 +502,7 @@ namespace DXTnavis.ViewModels
                         }
                         else
                         {
-                            // ObjectIds가 없으면 SyncID(PipeRun명)로 매칭 시도
+                            // ObjectIds가 없으면 SyncID(PipeRun명)로 속성 기반 매칭 시도
                             var modelItem = _objectMatcher.FindBySyncId(schedule.SyncID, awpOptions);
                             if (modelItem != null)
                             {
@@ -486,6 +527,12 @@ namespace DXTnavis.ViewModels
                     var total = matchedCount + failedCount;
                     Progress = 20 + (int)(30.0 * total / scheduleDataList.Count);
                     StatusMessage = $"2/4: 객체 매칭 중... ({total}/{scheduleDataList.Count})";
+
+                    // Pump Windows messages to prevent COM ContextSwitchDeadlock
+                    if (total % 10 == 0)
+                    {
+                        WinForms.Application.DoEvents();
+                    }
                 }
 
                 if (matchedCount == 0)
@@ -495,12 +542,13 @@ namespace DXTnavis.ViewModels
                         "CSV의 ObjectId와 Navisworks 모델의 Element ID가 일치하는지 확인하세요.");
                 }
 
-                // Step 3: Selection Set 생성
+                // Step 3: Selection Set 생성 (PipeRun별 개별 Set)
+                // Set 이름 = TaskName(PipeRun) → CSV leaf task name과 일치 → 규칙 자동 매칭
                 StatusMessage = "3/4: Selection Set 생성 중...";
                 Progress = 50;
 
                 var matchedData = scheduleDataList.Where(s => s.MatchStatus == MatchStatus.Matched).ToList();
-                var setResults = _selectionSetService.CreateHierarchicalSets(matchedData, awpOptions);
+                var setResults = _selectionSetService.CreatePipelineSets(matchedData, _objectMatcher, awpOptions);
                 Progress = 70;
 
                 // SyncID → SetName 매핑
@@ -657,6 +705,7 @@ namespace DXTnavis.ViewModels
                 GapDaysBetweenPipelines = GapDays,
                 TimeStrategy = timeStrategy,
                 OrderingStrategy = orderingStrategy,
+                TaskGranularity = IsByObject ? TaskGranularity.ByObject : TaskGranularity.ByPipeRun,
                 TaskType = "Construct",
                 TimeLinerRootFolder = "Pipeline Schedule",
                 SelectionSetRootFolder = "Pipeline Sets"
@@ -684,6 +733,7 @@ namespace DXTnavis.ViewModels
     {
         public string Pipeline { get; set; }
         public string PipeRun { get; set; }
+        public string ObjectName { get; set; }
         public int ObjectCount { get; set; }
         public DateTime Start { get; set; }
         public DateTime End { get; set; }

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using Autodesk.Navisworks.Api;
 using DXTnavis.Models;
+using WinForms = System.Windows.Forms;
 
 namespace DXTnavis.Services
 {
@@ -40,6 +41,9 @@ namespace DXTnavis.Services
                 extractor.TraverseAndExtractProperties(model.RootItem, Guid.Empty, 0, hierarchicalData);
             }
 
+            // UI 스레드에서 실행되므로 DoEvents로 ContextSwitchDeadlock 방지
+            WinForms.Application.DoEvents();
+
             if (hierarchicalData.Count == 0)
             {
                 throw new InvalidOperationException("내보낼 데이터가 없습니다.");
@@ -70,7 +74,9 @@ namespace DXTnavis.Services
                 objectDataMap[record.ObjectId][propertyKey] = record.PropertyValue;
             }
 
+            WinForms.Application.DoEvents();
             progress?.Report((30, $"총 {objectDataMap.Count:N0}개 객체, {allPropertyKeys.Count:N0}개 고유 속성 발견. CSV 생성 중..."));
+            WinForms.Application.DoEvents();
 
             using (var writer = new StreamWriter(filePath, false, Encoding.UTF8))
             {
@@ -110,11 +116,12 @@ namespace DXTnavis.Services
                         writer.WriteLine(string.Join(",", rowParts));
                         processedObjects++;
 
-                        // 100개 객체마다 진행률 보고
+                        // 100개 객체마다 진행률 보고 + DoEvents
                         if (processedObjects % 100 == 0)
                         {
                             int percentage = 30 + (int)((processedObjects / (double)objectDataMap.Count) * 65);
                             progress?.Report((percentage, $"{processedObjects:N0} / {objectDataMap.Count:N0} 객체 저장 중..."));
+                            WinForms.Application.DoEvents();
                         }
                     }
                     catch (Exception ex)

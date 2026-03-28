@@ -743,6 +743,16 @@ namespace DXTnavis.Services.Geometry
                     WriteGlbHeader(bw, meshData);
                 }
 
+                // Phase 31: GLB 최소 유효성 검증 — GLB 헤더(12 bytes) + 최소 chunk
+                var fi = new FileInfo(outputPath);
+                if (!fi.Exists || fi.Length < 100)
+                {
+                    Debug.WriteLine(string.Format("[MeshExtractor] GLB too small or missing: {0} ({1} bytes)",
+                        outputPath, fi.Exists ? fi.Length : 0));
+                    if (fi.Exists) fi.Delete();
+                    return false;
+                }
+
                 return true;
             }
             catch (Exception ex)

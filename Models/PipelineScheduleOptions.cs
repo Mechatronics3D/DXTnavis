@@ -57,6 +57,15 @@ namespace DXTnavis.Models
 
         #endregion
 
+        #region Task Granularity
+
+        /// <summary>
+        /// Task 생성 단위: PipeRun별 또는 객체별
+        /// </summary>
+        public TaskGranularity TaskGranularity { get; set; } = TaskGranularity.ByPipeRun;
+
+        #endregion
+
         #region Ordering
 
         /// <summary>
@@ -97,6 +106,17 @@ namespace DXTnavis.Models
         ObjectCountBased,
         /// <summary>기본 시간 + 객체당 추가 시간 (권장)</summary>
         Hybrid
+    }
+
+    /// <summary>
+    /// Task 생성 단위
+    /// </summary>
+    public enum TaskGranularity
+    {
+        /// <summary>PipeRun 1개 = Task 1개 (그룹 단위)</summary>
+        ByPipeRun,
+        /// <summary>객체 1개 = Task 1개 (개별 순서 부여)</summary>
+        ByObject
     }
 
     /// <summary>
@@ -146,6 +166,8 @@ namespace DXTnavis.Models
         public string Pipeline { get; set; }
         public string PipeRun { get; set; }
         public double CentroidX { get; set; }
+        public DateTime PlannedStart { get; set; }
+        public DateTime PlannedEnd { get; set; }
     }
 
     /// <summary>

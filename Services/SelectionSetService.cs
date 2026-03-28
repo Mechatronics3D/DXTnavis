@@ -4,6 +4,7 @@ using System.Linq;
 using Autodesk.Navisworks.Api;
 using Autodesk.Navisworks.Api.DocumentParts;
 using DXTnavis.Models;
+using WinForms = System.Windows.Forms;
 
 namespace DXTnavis.Services
 {
@@ -150,6 +151,12 @@ namespace DXTnavis.Services
                         ErrorMessage = ex.Message
                     });
                 }
+
+                // Pump Windows messages to prevent COM ContextSwitchDeadlock
+                if (index % 10 == 0)
+                {
+                    WinForms.Application.DoEvents();
+                }
             }
 
             result.FolderCount = _createdFolders.Count + 1; // 루트 폴더 포함
@@ -161,6 +168,196 @@ namespace DXTnavis.Services
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Pipeline 4D 전용: PipeRun별 개별 Selection Set 생성
+        /// 각 ScheduleData = 1개 PipeRun = 1개 SelectionSet (다중 객체 포함)
+        ///
+        /// 구조: {RootFolder}/{ParentSet(Pipeline)}/{TaskName(PipeRun)} ← SelectionSet
+        /// CSV leaf task name과 Selection Set name이 일치하여 TimeLiner 규칙 자동 매칭 가능
+        ///
+        /// 모델 트리를 1회 순회하여 필요한 모든 ModelItem을 fresh하게 수집
+        /// (ObjectMatcher 캐시 사용 시 WeakRef GC → ObjectDisposedException 방지)
+        /// </summary>
+        public SelectionSetResult CreatePipelineSets(
+            List<ScheduleData> schedules,
+            ObjectMatcher objectMatcher,
+            AWP4DOptions options)
+        {
+            var result = new SelectionSetResult();
+            var doc = Application.ActiveDocument;
+
+            if (doc == null)
+            {
+                result.FailedSets.Add("활성 문서가 없습니다.");
+                return result;
+            }
+
+            // ── Phase A: 필요한 GUID 파싱 + scheduleIndex 매핑 ──
+            // GUID → 해당 schedule의 인덱스 목록 (하나의 GUID가 여러 schedule에 속할 수 있음)
+            var guidToScheduleIndices = new Dictionary<Guid, List<int>>();
+            for (int i = 0; i < schedules.Count; i++)
+            {
+                string objectIdsStr;
+                if (schedules[i].CustomProperties != null &&
+                    schedules[i].CustomProperties.TryGetValue("ObjectIds", out objectIdsStr) &&
+                    !string.IsNullOrEmpty(objectIdsStr))
+                {
+                    foreach (var guidStr in objectIdsStr.Split(';'))
+                    {
+                        Guid g;
+                        if (Guid.TryParse(guidStr.Trim(), out g))
+                        {
+                            List<int> indices;
+                            if (!guidToScheduleIndices.TryGetValue(g, out indices))
+                            {
+                                indices = new List<int>();
+                                guidToScheduleIndices[g] = indices;
+                            }
+                            indices.Add(i);
+                        }
+                    }
+                }
+            }
+
+            if (VerboseLogging)
+                System.Diagnostics.Debug.WriteLine(
+                    $"[SelectionSetService] Pipeline Sets: {schedules.Count}개 PipeRun, {guidToScheduleIndices.Count}개 GUID 수집");
+
+            // ── Phase B: 모델 트리 1회 순회 → fresh ModelItem 직접 수집 ──
+            var itemCollections = new ModelItemCollection[schedules.Count];
+            for (int i = 0; i < schedules.Count; i++)
+                itemCollections[i] = new ModelItemCollection();
+
+            int traversedCount = 0;
+            int collectedCount = 0;
+            foreach (var model in doc.Models)
+            {
+                CollectItemsForPipelineSets(
+                    model.RootItem, guidToScheduleIndices, itemCollections,
+                    ref traversedCount, ref collectedCount);
+            }
+
+            WinForms.Application.DoEvents();
+
+            if (VerboseLogging)
+                System.Diagnostics.Debug.WriteLine(
+                    $"[SelectionSetService] 트리 순회 완료: {traversedCount:N0}개 노드, {collectedCount}개 ModelItem 수집");
+
+            // ── Phase C: Selection Set 즉시 생성 (ModelItem이 fresh한 상태) ──
+            var rootFolder = GetOrCreateRootFolder(doc, options.SelectionSetRootFolder);
+            result.FolderCount++;
+
+            for (int i = 0; i < schedules.Count; i++)
+            {
+                var schedule = schedules[i];
+                var modelItems = itemCollections[i];
+
+                try
+                {
+                    // 빈 세트 건너뛰기
+                    if (modelItems.Count == 0 && options.SkipEmptySelectionSets)
+                    {
+                        if (VerboseLogging)
+                            System.Diagnostics.Debug.WriteLine(
+                                $"[SelectionSetService] Pipeline Set 건너뛰기: '{schedule.TaskName}' (빈 세트)");
+                        continue;
+                    }
+
+                    // 폴더 경로 = ParentSet (Pipeline name)
+                    var targetFolder = CreateFolderPath(doc, rootFolder, schedule.ParentSet, options);
+
+                    // Set 이름 = TaskName (PipeRun name) → CSV leaf task name과 일치
+                    string setName = schedule.TaskName;
+
+                    var selectionSet = CreateSelectionSet(doc, targetFolder, setName, modelItems);
+
+                    if (selectionSet != null)
+                    {
+                        _createdSets[setName] = selectionSet;
+                        result.SetCount++;
+                        result.TotalItemCount += modelItems.Count;
+                        result.CreatedSets.Add(setName);
+
+                        if (VerboseLogging)
+                            System.Diagnostics.Debug.WriteLine(
+                                $"[SelectionSetService] Pipeline Set: '{schedule.ParentSet}/{setName}' ({modelItems.Count}개 객체)");
+                    }
+
+                    OnProgressChanged(new SelectionSetProgressEventArgs
+                    {
+                        CurrentIndex = i + 1,
+                        TotalCount = schedules.Count,
+                        SetName = setName,
+                        ItemCount = modelItems.Count,
+                        Success = true
+                    });
+                }
+                catch (Exception ex)
+                {
+                    result.FailedSets.Add($"{schedule.TaskName}: {ex.Message}");
+                    if (VerboseLogging)
+                        System.Diagnostics.Debug.WriteLine(
+                            $"[SelectionSetService] Pipeline Set 오류: '{schedule.TaskName}' - {ex.Message}");
+                }
+
+                // DoEvents every 5 sets
+                if ((i + 1) % 5 == 0)
+                    WinForms.Application.DoEvents();
+            }
+
+            result.FolderCount = _createdFolders.Count + 1;
+
+            if (VerboseLogging)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[SelectionSetService] Pipeline Sets 완료: {result.SetCount}개 세트, " +
+                    $"{result.TotalItemCount}개 객체, {result.FolderCount}개 폴더");
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 모델 트리 재귀 순회: 필요한 GUID의 ModelItem을 해당 schedule의 컬렉션에 직접 추가
+        /// 캐시 없이 fresh ModelItem 참조를 사용하여 WeakRef GC 문제 방지
+        /// </summary>
+        private void CollectItemsForPipelineSets(
+            ModelItem item,
+            Dictionary<Guid, List<int>> guidToScheduleIndices,
+            ModelItemCollection[] itemCollections,
+            ref int traversedCount,
+            ref int collectedCount)
+        {
+            if (item == null) return;
+
+            // 이 ModelItem의 GUID가 필요한지 확인
+            if (item.InstanceGuid != Guid.Empty)
+            {
+                List<int> scheduleIndices;
+                if (guidToScheduleIndices.TryGetValue(item.InstanceGuid, out scheduleIndices))
+                {
+                    foreach (int idx in scheduleIndices)
+                    {
+                        itemCollections[idx].Add(item);
+                    }
+                    collectedCount++;
+                }
+            }
+
+            traversedCount++;
+
+            // DoEvents: 10,000 노드마다
+            if (traversedCount % 10000 == 0)
+                WinForms.Application.DoEvents();
+
+            // 자식 순회
+            foreach (ModelItem child in item.Children)
+            {
+                CollectItemsForPipelineSets(child, guidToScheduleIndices, itemCollections,
+                    ref traversedCount, ref collectedCount);
+            }
         }
 
         /// <summary>

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Navisworks.Api;
 using DXTnavis.Models;
+using WinForms = System.Windows.Forms;
 
 namespace DXTnavis.Services
 {
@@ -299,6 +300,12 @@ namespace DXTnavis.Services
 
             count++;
 
+            // DoEvents every 5000 items to prevent ContextSwitchDeadlock
+            if (count % 5000 == 0)
+            {
+                WinForms.Application.DoEvents();
+            }
+
             // 속성값 추출
             try
             {
@@ -374,11 +381,94 @@ namespace DXTnavis.Services
         }
 
         /// <summary>
+        /// InstanceGuid 기반 ModelItem 검색
+        /// Pipeline 4D에서 AllProperties CSV의 ObjectId(=InstanceGuid)로 매칭할 때 사용
+        /// </summary>
+        /// <param name="instanceGuid">Navisworks ModelItem의 InstanceGuid</param>
+        /// <returns>매칭된 ModelItem (없으면 null)</returns>
+        public ModelItem FindByInstanceGuid(Guid instanceGuid)
+        {
+            if (instanceGuid == Guid.Empty)
+                return null;
+
+            string key = instanceGuid.ToString();
+
+            // 캐시 확인
+            if (UseCache && _matchCache.TryGetValue(key, out ModelItem cached))
+                return cached;
+
+            // InstanceGuid 맵이 없으면 구축
+            if (_instanceGuidMap == null)
+                BuildInstanceGuidMap();
+
+            ModelItem found;
+            if (_instanceGuidMap.TryGetValue(instanceGuid, out found))
+            {
+                if (UseCache)
+                    _matchCache.TryAdd(key, found);
+                return found;
+            }
+
+            if (VerboseLogging)
+                System.Diagnostics.Debug.WriteLine($"[ObjectMatcher] InstanceGuid '{instanceGuid}' 매칭 실패");
+
+            return null;
+        }
+
+        /// <summary>
+        /// InstanceGuid → ModelItem 맵 구축 (1회만 실행)
+        /// </summary>
+        private Dictionary<Guid, ModelItem> _instanceGuidMap;
+
+        /// <summary>
+        /// DoEvents 호출용 카운터 (ContextSwitchDeadlock 방지)
+        /// </summary>
+        private int _guidMapCounter;
+
+        public void BuildInstanceGuidMap()
+        {
+            _instanceGuidMap = new Dictionary<Guid, ModelItem>();
+            _guidMapCounter = 0;
+            var doc = Application.ActiveDocument;
+            if (doc == null) return;
+
+            foreach (var model in doc.Models)
+            {
+                BuildInstanceGuidMapRecursive(model.RootItem);
+            }
+
+            if (VerboseLogging)
+                System.Diagnostics.Debug.WriteLine(
+                    $"[ObjectMatcher] InstanceGuid 맵 구축 완료: {_instanceGuidMap.Count}개 항목");
+        }
+
+        private void BuildInstanceGuidMapRecursive(ModelItem item)
+        {
+            if (item == null) return;
+
+            if (item.InstanceGuid != Guid.Empty)
+            {
+                _instanceGuidMap[item.InstanceGuid] = item;
+            }
+
+            _guidMapCounter++;
+            if (_guidMapCounter % 5000 == 0)
+            {
+                WinForms.Application.DoEvents();
+            }
+
+            foreach (ModelItem child in item.Children)
+            {
+                BuildInstanceGuidMapRecursive(child);
+            }
+        }
+
+        /// <summary>
         /// 매칭 통계 반환
         /// </summary>
         public string GetCacheStatistics()
         {
-            return $"캐시 크기: {_matchCache.Count}개 직접 매칭, {_propertyValueCache.Count}개 속성값";
+            return $"캐시 크기: {_matchCache.Count}개 직접 매칭, {_propertyValueCache.Count}개 속성값, InstanceGuid 맵: {_instanceGuidMap?.Count ?? 0}개";
         }
 
         protected virtual void OnProgressChanged(ObjectMatchProgressEventArgs e)
