@@ -1,4 +1,5 @@
 <div align="center">
+  <img src=".github/thumbnail.png" alt="DXTnavis" width="600" />
 
 # DXTnavis
 
@@ -25,29 +26,31 @@
 
 ![DXTnavis Main Page](snapshots/dxtnavis_main_page.png)
 
+  <p>
+    <img src="https://img.shields.io/badge/version-1.6.0-022448" alt="Version" />
+    <img src="https://img.shields.io/badge/status-production-10b981" alt="Status" />
+    <img src="https://img.shields.io/badge/C%23-WPF-022448" alt="C# WPF" />
+    <img src="https://img.shields.io/badge/Navisworks-2025-3b82f6" alt="Navisworks" />
+    <img src="https://img.shields.io/badge/.NET_Framework-4.8-022448" alt=".NET" />
+    <img src="https://img.shields.io/badge/glTF_2.0-GLB_Export-3b82f6" alt="GLB" />
+  </p>
 </div>
 
 ---
 
-## Impact
+## Overview
 
-<table>
-<tr>
-<th width="50%">Before (Manual)</th>
-<th width="50%">After (DXTnavis)</th>
-</tr>
-<tr>
-<td>
+DXTnavis is a Navisworks 2025 plugin for extracting BIM properties, geometry, and 3D meshes, plus automating 4D construction simulations. It provides a 5-stage full pipeline export (hierarchy CSV, bounding-box geometry, per-object GLB meshes, spatial adjacency with RDF/TTL, and a 22-column unified CSV), an AWP 4D automation pipeline that transforms schedule CSVs into TimeLiner simulations, and a complete BIM data management suite with hierarchy navigation, filtering, and 3D viewport control.
 
-**BIM Property Export** - 4+ hours
-- Navisworks에서 수동 검색/복사
-- Excel에 수동 붙여넣기
-- 445K 속성 필터링 불가
+## Key Features
 
-**4D Simulation Setup** - 2+ days
-- CSV 수동 매핑
-- Selection Set 수동 생성
-- TimeLiner Task 수동 연결
+- **BIM Property Management** -- Hierarchy navigation (L0-L10), real-time property filtering, object grouping (445K to ~5K), dual CSV export (Raw + Refined)
+- **AWP 4D Automation** -- End-to-end pipeline: CSV Import > SyncID Matching > ComAPI Property Write > Selection Set > TimeLiner Task
+- **Direct TimeLiner** -- One-click TimeLiner connection without CSV, reducing 7 steps to 3 (57% faster)
+- **3D Mesh GLB Export** -- COM API-based glTF 2.0 binary mesh extraction with LCS-to-WCS coordinate transformation
+- **Geometry & Spatial Analysis** -- BBox/Centroid extraction, adjacency detection via Union-Find, RDF/TTL triple generation
+- **Unified CSV Export** -- 22-column single-row-per-object schema for knowledge graph integration
+- **3D Viewport Control** -- Select, Show Only, Show All, Zoom, and Reset Home from filtered results
 
 **Pipeline 4D Schedule** - 1+ week
 - Pipeline/PipeRun 수동 분류
@@ -251,32 +254,15 @@ ModelItem ──→ COM Fragment ──→ GenerateSimplePrimitives() ──→ 
 ### Full Pipeline (5-Stage Export)
 
 ```
-┌────────────────────────────────────────────────────────────────┐
-│                    Full Pipeline Export                         │
-├─────────┬─────────┬─────────┬──────────┬──────────────────────┤
-│ Stage 1 │ Stage 2 │ Stage 3 │ Stage 4  │ Stage 5              │
-│Hierarchy│Geometry │  Mesh   │ Spatial  │ Unified CSV          │
-│  CSV    │BBox+CSV │  GLB    │Adjacency │ 22-col Schema        │
-│         │manifest │per-obj  │ RDF/TTL  │ 1row=1obj            │
-└─────────┴─────────┴─────────┴──────────┴──────────────────────┘
-                         │
-                         ▼
-              export_YYYYMMDD_HHMMSS/
-              ├── hierarchy.csv
-              ├── geometry.csv
-              ├── manifest.json
-              ├── unified.csv
-              ├── adjacency.csv
-              ├── connected_groups.csv
-              ├── spatial_relationships.ttl
-              └── mesh/
-                  ├── {uuid}.glb
-                  └── ...
+┌─────────┬─────────┬─────────┬──────────┬──────────────────┐
+│ Stage 1 │ Stage 2 │ Stage 3 │ Stage 4  │ Stage 5          │
+│Hierarchy│Geometry │  Mesh   │ Spatial  │ Unified CSV      │
+│  CSV    │BBox+CSV │  GLB    │Adjacency │ 22-col Schema    │
+│         │manifest │per-obj  │ RDF/TTL  │ 1row=1obj        │
+└─────────┴─────────┴─────────┴──────────┴──────────────────┘
 ```
 
 ### Hybrid API Strategy
-
-Navisworks는 두 가지 API를 제공합니다. DXTnavis는 용도에 맞게 조합합니다.
 
 | Feature | API | Reason |
 |---------|-----|--------|
@@ -287,7 +273,7 @@ Navisworks는 두 가지 API를 제공합니다. DXTnavis는 용도에 맞게 �
 | TimeLiner ↔ Set 연결 | **Navisworks UI** | "작업 자동 추가 > 모든 세트에 대해" |
 | 3D Viewport | .NET API | Selection, Visibility |
 | **Mesh Extract** | **ComAPI** | GenerateSimplePrimitives() |
-| **ViewPoint Save** | **ComAPI** | .NET API 미지원 기능 |
+| **ViewPoint Save** | **ComAPI** | Not supported in .NET API |
 
 ### MVVM Architecture
 
@@ -521,16 +507,19 @@ Fallback 순서: InstanceGuid → Item GUID → Authoring ID → Hierarchy Path 
 ### Build & Deploy
 
 ```bash
-# Visual Studio에서 빌드 (관리자 권한 필요)
-# Configuration: Release, Platform: x64
+# Build (administrator privileges required)
 MSBuild DXTnavis.csproj /p:Configuration=Release /p:Platform=x64
 ```
 
-> 빌드 후 자동 배포: `C:\Program Files\Autodesk\Navisworks Manage 2025\Plugins\`
+> After build, the plugin auto-deploys to: `C:\Program Files\Autodesk\Navisworks Manage 2025\Plugins\`
 
----
+### Usage
 
-## Development Status
+1. Open `DXTnavis.sln` in Visual Studio and build
+2. Launch Navisworks 2025 > Home tab > DXTnavis
+3. Browse hierarchy > Filter properties > Control 3D view
+4. For 4D simulation: AWP 4D tab > Load schedule CSV > Execute
+5. Full Pipeline for Geometry + Mesh + Spatial integrated export
 
 ```
 Phases:  █████████████████████ 19/19 Complete
@@ -571,8 +560,8 @@ Period:  2025-12-29 ~ 2026-03-23 (85 days)
 | v1.4.0 | Geometry Export (BBox/Centroid/RDF) | 2026-02-06 |
 | v1.3.0 | Synthetic ID Generation | 2026-02-05 |
 | v1.2.0 | Direct TimeLiner Execution | 2026-01-21 |
-| v1.1.0 | TimeLiner Enhancement (TaskType/DateMode) | 2026-01-21 |
-| v1.0.0 | Grouped Data Structure (445K→5K) | 2026-01-20 |
+| v1.1.0 | TimeLiner Enhancement | 2026-01-21 |
+| v1.0.0 | Grouped Data Structure (445K to 5K) | 2026-01-20 |
 | v0.9.0 | Object Grouping MVP | 2026-01-20 |
 | v0.8.0 | Schedule Builder | 2026-01-19 |
 | v0.6.0 | AWP 4D Automation Pipeline | 2026-01-11 |
@@ -584,22 +573,13 @@ Period:  2025-12-29 ~ 2026-03-23 (85 days)
 
 **[Full Changelog](CHANGELOG.md)**
 
----
-
 ## Project Structure
 
-<details>
-<summary><b>Click to expand</b></summary>
-
 ```
-dxtnavis/
+DXTnavis/
 ├── Services/
-│   ├── NavisworksDataExtractor.cs        # 속성 추출 + Synthetic ID
-│   ├── NavisworksSelectionService.cs     # 3D 선택/표시 제어
-│   ├── DisplayStringParser.cs            # VariantData 타입 파싱
-│   ├── SnapshotService.cs                # 뷰포인트/캡처
-│   ├── HierarchyFileWriter.cs            # Hierarchy CSV
-│   ├── PropertyFileWriter.cs             # Property CSV + Verbose
+│   ├── NavisworksDataExtractor.cs        # Property extraction + Synthetic ID
+│   ├── NavisworksSelectionService.cs     # 3D selection/visibility control
 │   ├── PropertyWriteService.cs           # ComAPI Property Write
 │   ├── SelectionSetService.cs            # Selection Set 생성
 │   ├── TimeLinerService.cs               # TimeLiner Task 생성
@@ -610,13 +590,12 @@ dxtnavis/
 │   ├── PipelineScheduleBuilder.cs       # Pipeline 4D 스케줄 빌더
 │   ├── UnifiedCsvExporter.cs             # 22-col 통합 CSV
 │   ├── Geometry/
-│   │   ├── GeometryExtractor.cs          # BBox 추출 + 배치 처리
-│   │   ├── GeometryFileWriter.cs         # manifest.json + geometry.csv
-│   │   ├── MeshExtractor.cs              # COM API GLB 메시 추출
-│   │   └── GeometryRdfIntegrator.cs      # RDF/TTL 변환
+│   │   ├── GeometryExtractor.cs          # BBox extraction
+│   │   ├── MeshExtractor.cs              # COM API GLB mesh export
+│   │   └── GeometryRdfIntegrator.cs      # RDF/TTL conversion
 │   └── Spatial/
-│       ├── AdjacencyDetector.cs           # BBox 인접성 검출
-│       ├── ConnectedComponentFinder.cs    # Union-Find 연결 그룹
+│       ├── AdjacencyDetector.cs           # BBox adjacency detection
+│       ├── ConnectedComponentFinder.cs    # Union-Find groups
 │       └── SpatialRelationshipWriter.cs   # adjacency.csv + TTL
 ├── ViewModels/                            # MVVM Partial Class Pattern
 │   ├── DXwindowViewModel.cs              # Core
@@ -649,43 +628,21 @@ dxtnavis/
 ├── Resources/Ontology/
 │   └── dxtnavis-rules.yaml              # BSO 온톨로지 규칙
 └── docs/
-    ├── phases/                            # Phase 문서 (18개)
-    ├── adr/                               # Architecture Decision Records
-    └── tech-specs/                        # 기술 명세서
 ```
-
-</details>
-
----
-
-## API Dependencies
-
-```xml
-<!-- .NET API -->
-<Reference Include="Autodesk.Navisworks.Api"/>
-<Reference Include="Autodesk.Navisworks.Automation"/>
-<Reference Include="Autodesk.Navisworks.Timeliner"/>
-
-<!-- COM API (Property Write, Mesh Extract) -->
-<Reference Include="Autodesk.Navisworks.ComApi"/>
-<Reference Include="Autodesk.Navisworks.Interop.ComApi"/>
-```
-
----
 
 ## Output Formats
 
 | Format | Content | Consumer |
 |--------|---------|----------|
-| `hierarchy.csv` | 모델 계층 구조 | Excel, Python |
+| `hierarchy.csv` | Model hierarchy | Excel, Python |
 | `geometry.csv` | BBox + Centroid | GIS, 3D Viewer |
-| `manifest.json` | Three.js/CesiumJS 호환 | Web 3D |
-| `unified.csv` | 22-col 통합 (1obj=1row) | Knowledge Graph |
+| `manifest.json` | Three.js/CesiumJS compatible | Web 3D |
+| `unified.csv` | 22-col unified (1obj=1row) | Knowledge Graph |
 | `mesh/{uuid}.glb` | glTF 2.0 Binary | Three.js, Blender |
-| `adjacency.csv` | 공간 인접 관계 | Network Analysis |
-| `spatial_relationships.ttl` | RDF 트리플 | SPARQL, Neo4j |
+| `adjacency.csv` | Spatial adjacency | Network Analysis |
+| `spatial_relationships.ttl` | RDF triples | SPARQL, Neo4j |
 
----
+## License
 
 <div align="center">
 
