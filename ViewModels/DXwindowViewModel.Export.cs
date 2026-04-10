@@ -1589,6 +1589,7 @@ namespace DXTnavis.ViewModels
                     int meshProcessed = 0;
                     int meshTotal = allItems.Count;
 
+                    ExportGlbProgressText = $"0 / {meshTotal}";
                     ExportStatusMessage = string.Format("[3/6] Mesh GLB 추출 중... ({0:N0}개 객체)", meshTotal);
 
                     foreach (var kvp in allItems)
@@ -1679,6 +1680,7 @@ namespace DXTnavis.ViewModels
                         }
 
                         meshProcessed++;
+                        ExportGlbProgressText = $"{meshProcessed} / {meshTotal}";
                         if (meshProcessed % 50 == 0 || meshProcessed == meshTotal)
                         {
                             ExportProgressPercentage = 40 + (int)(20.0 * meshProcessed / meshTotal);
@@ -1689,6 +1691,7 @@ namespace DXTnavis.ViewModels
                             System.Windows.Forms.Application.DoEvents();
                     }
                 }
+                ExportGlbProgressText = string.Empty;
 
                 // Phase 25: tessellation_failures.csv 출력
                 if (tessFailures.Count > 1) // 헤더 외에 실패 데이터가 있을 때만

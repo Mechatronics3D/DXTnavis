@@ -244,6 +244,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <!-- Row 0: Level 체크박스 필터 -->
@@ -580,6 +581,11 @@
 
                     <!-- Main Export Buttons -->
                     <StackPanel Grid.Row="0" Grid.Column="0">
+                                            <!-- GLB Export Progress Text -->
+                                            <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                                       Text="{Binding ExportGlbProgressText}"
+                                                       FontSize="12" Foreground="#1976D2" FontWeight="Bold"
+                                                       Margin="0,4,0,0" Visibility="{Binding IsExporting, Converter={StaticResource BoolToVisibilityConverter}}"/>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <Button Content="📦 Full Export"
                                     Style="{StaticResource ActionButton}"

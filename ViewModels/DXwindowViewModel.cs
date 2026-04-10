@@ -25,6 +25,19 @@ namespace DXTnavis.ViewModels
         private bool _isMonitoring;
         private bool _isExporting;
         private int _exportProgressPercentage;
+        private string _exportGlbProgressText;
+                /// <summary>
+                /// GLB 내보내기 진행 텍스트 (예: 123/456)
+                /// </summary>
+                public string ExportGlbProgressText
+                {
+                    get => _exportGlbProgressText;
+                    set
+                    {
+                        _exportGlbProgressText = value;
+                        OnPropertyChanged(nameof(ExportGlbProgressText));
+                    }
+                }
         private string _exportStatusMessage;
         private HierarchicalPropertyRecord _selectedProperty;
         private string _folderName = "My DX Sets";

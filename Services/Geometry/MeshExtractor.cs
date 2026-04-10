@@ -73,7 +73,7 @@ namespace DXTnavis.Services.Geometry
 
             try
             {
-                // ──── Phase 21: 진단 로깅 ────
+                // ──── Phase 21: 진단 로 깅 ────
                 string displayName = item.DisplayName ?? "(unnamed)";
                 string classDisplay = item.ClassDisplayName ?? "(no class)";
                 bool isLeaf = item.Children == null || !item.Children.Any();
@@ -437,6 +437,7 @@ namespace DXTnavis.Services.Geometry
                 return null;
             }
         }
+
 
         /// <summary>
         /// Phase 19: 단일 ModelItem의 mesh 진단 정보 추출 (GLB 생성 없이 통계만)
@@ -997,8 +998,8 @@ namespace DXTnavis.Services.Geometry
             for (int i = startIdx; i < startIdx + count * 3; i += 3)
             {
                 float x = vertices[i], y = vertices[i + 1], z = vertices[i + 2];
-                vertices[i]     = matrix[0] * x + matrix[4] * y + matrix[8]  * z + matrix[12];
-                vertices[i + 1] = matrix[1] * x + matrix[5] * y + matrix[9]  * z + matrix[13];
+                vertices[i] = matrix[0] * x + matrix[4] * y + matrix[8] * z + matrix[12];
+                vertices[i + 1] = matrix[1] * x + matrix[5] * y + matrix[9] * z + matrix[13];
                 vertices[i + 2] = matrix[2] * x + matrix[6] * y + matrix[10] * z + matrix[14];
             }
         }
@@ -1824,4 +1825,17 @@ namespace DXTnavis.Services.Geometry
 
                 if (raw == null) return null;
 
-                var arr = raw as Array
+                var arr = raw as Array;
+                if (arr == null) return null;
+                var result = new float[arr.Length];
+                for (int i = 0; i < arr.Length; i++)
+                    result[i] = Convert.ToSingle(arr.GetValue(i));
+                return result;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+    }
+}

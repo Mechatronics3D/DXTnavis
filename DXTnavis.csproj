@@ -114,47 +114,47 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="Autodesk.Navisworks.Api">
-      <HintPath>..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Autodesk.Navisworks.Api.dll</HintPath>
+      <HintPath>..\..\..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Autodesk.Navisworks.Api.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Autodesk.Navisworks.Automation">
-      <HintPath>..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Autodesk.Navisworks.Automation.dll</HintPath>
+      <HintPath>..\..\..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Autodesk.Navisworks.Automation.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Autodesk.Navisworks.Clash">
-      <HintPath>..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Autodesk.Navisworks.Clash.dll</HintPath>
+      <HintPath>..\..\..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Autodesk.Navisworks.Clash.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Autodesk.Navisworks.ComApi">
-      <HintPath>..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Autodesk.Navisworks.ComApi.dll</HintPath>
+      <HintPath>..\..\..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Autodesk.Navisworks.ComApi.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Autodesk.Navisworks.Controls">
-      <HintPath>..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Autodesk.Navisworks.Controls.dll</HintPath>
+      <HintPath>..\..\..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Autodesk.Navisworks.Controls.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Autodesk.Navisworks.Interop.ComApi">
-      <HintPath>..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Autodesk.Navisworks.Interop.ComApi.dll</HintPath>
+      <HintPath>..\..\..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Autodesk.Navisworks.Interop.ComApi.dll</HintPath>
       <EmbedInteropTypes>False</EmbedInteropTypes>
     </Reference>
     <Reference Include="Autodesk.Navisworks.Interop.ComApiAutomation">
-      <HintPath>..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Autodesk.Navisworks.Interop.ComApiAutomation.dll</HintPath>
+      <HintPath>..\..\..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Autodesk.Navisworks.Interop.ComApiAutomation.dll</HintPath>
       <EmbedInteropTypes>False</EmbedInteropTypes>
     </Reference>
     <Reference Include="Autodesk.Navisworks.Interop.Timeliner">
-      <HintPath>..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Autodesk.Navisworks.Interop.Timeliner.dll</HintPath>
+      <HintPath>..\..\..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Autodesk.Navisworks.Interop.Timeliner.dll</HintPath>
       <EmbedInteropTypes>False</EmbedInteropTypes>
     </Reference>
     <Reference Include="Autodesk.Navisworks.Resolver">
-      <HintPath>..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Autodesk.Navisworks.Resolver.dll</HintPath>
+      <HintPath>..\..\..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Autodesk.Navisworks.Resolver.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Autodesk.Navisworks.Takeoff">
-      <HintPath>..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Autodesk.Navisworks.Takeoff.dll</HintPath>
+      <HintPath>..\..\..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Autodesk.Navisworks.Takeoff.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Autodesk.Navisworks.Timeliner">
-      <HintPath>..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Autodesk.Navisworks.Timeliner.dll</HintPath>
+      <HintPath>..\..\..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Autodesk.Navisworks.Timeliner.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Microsoft.Bcl.AsyncInterfaces, Version=7.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
