@@ -1827,9 +1827,11 @@ namespace DXTnavis.Services.Geometry
 
                 var arr = raw as Array;
                 if (arr == null) return null;
-                var result = new float[arr.Length];
-                for (int i = 0; i < arr.Length; i++)
-                    result[i] = Convert.ToSingle(arr.GetValue(i));
+                int len = arr.Length;
+                var result = new float[len];
+                int lb = arr.GetLowerBound(0);
+                for (int i = 0; i < len; i++)
+                    result[i] = Convert.ToSingle(arr.GetValue(lb + i));
                 return result;
             }
             catch
