@@ -138,10 +138,19 @@ namespace DXTnavis.Services.Geometry
                 int emptyFragmentCount = 0;
                 int retrySuccessCount = 0;
 
+                const int MAX_VERTICES = 5000000; // 5M vertices safety cap
+
                 foreach (InwOaFragment3 fragment in comPath.Fragments())
                 {
                     if (fragment == null) continue;
                     fragmentCount++;
+
+                    // Safety cap: skip remaining fragments if mesh is already very large
+                    if (meshData.Vertices.Count > MAX_VERTICES * 3)
+                    {
+                        Debug.WriteLine($"[MeshExtractor] {displayName}: vertex cap reached ({meshData.Vertices.Count / 3:N0}), skipping remaining fragments");
+                        break;
+                    }
 
                     try
                     {
@@ -352,6 +361,50 @@ namespace DXTnavis.Services.Geometry
                     meshData.Quality = "gap_supplemented";
                 else
                     meshData.Quality = "full_mesh";
+
+                // ──── Material color 추출 (PropertyCategories에서 Material 카테고리 읽기) ────
+                try
+                {
+                    float r = -1, g = -1, b = -1, transparency = 0;
+                    foreach (PropertyCategory category in item.PropertyCategories)
+                    {
+                        if (category == null) continue;
+                        string catName = category.DisplayName ?? category.Name ?? "";
+                        if (catName != "Material") continue;
+
+                        DataPropertyCollection props = null;
+                        try { props = category.Properties; }
+                        catch { break; }
+                        if (props == null) break;
+
+                        foreach (DataProperty prop in props)
+                        {
+                            if (prop == null) continue;
+                            string pName = prop.DisplayName ?? prop.Name ?? "";
+                            try
+                            {
+                                if (pName == "Diffuse.Red" || pName == "Diffuse Red")
+                                    r = Convert.ToSingle(prop.Value.ToDouble());
+                                else if (pName == "Diffuse.Green" || pName == "Diffuse Green")
+                                    g = Convert.ToSingle(prop.Value.ToDouble());
+                                else if (pName == "Diffuse.Blue" || pName == "Diffuse Blue")
+                                    b = Convert.ToSingle(prop.Value.ToDouble());
+                                else if (pName == "Transparency")
+                                    transparency = Convert.ToSingle(prop.Value.ToDouble());
+                            }
+                            catch { }
+                        }
+                        break;
+                    }
+                    if (r >= 0 && g >= 0 && b >= 0)
+                    {
+                        meshData.DiffuseColor = new float[] { r, g, b, 1.0f - transparency };
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[MeshExtractor] Color extraction failed for {displayName}: {ex.Message}");
+                }
 
                 // 진단: vertex 범위 출력 (납작한 판 문제 디버깅)
                 {
@@ -1223,6 +1276,20 @@ namespace DXTnavis.Services.Geometry
             int totalBufferLength = vertexByteLength + normalByteLength + indexByteLength;
             int indexBufferOffset = vertexByteLength + normalByteLength;
 
+            // Material color
+            string materialSection = "";
+            string materialRef = "";
+            if (meshData.DiffuseColor != null)
+            {
+                materialSection = string.Format(inv,
+                    @",""materials"": [{{ ""pbrMetallicRoughness"": {{ ""baseColorFactor"": [{0}, {1}, {2}, {3}], ""metallicFactor"": 0.1, ""roughnessFactor"": 0.7 }} }}]",
+                    meshData.DiffuseColor[0].ToString("F4", inv),
+                    meshData.DiffuseColor[1].ToString("F4", inv),
+                    meshData.DiffuseColor[2].ToString("F4", inv),
+                    meshData.DiffuseColor[3].ToString("F4", inv));
+                materialRef = @", ""material"": 0";
+            }
+
             if (hasNormals)
             {
                 // With normals: 3 bufferViews, 3 accessors, POSITION + NORMAL attributes
@@ -1239,8 +1306,8 @@ namespace DXTnavis.Services.Geometry
     {{ ""bufferView"": 0, ""componentType"": 5126, ""count"": {5}, ""type"": ""VEC3"", ""min"": [{6}, {7}, {8}], ""max"": [{9}, {10}, {11}] }},
     {{ ""bufferView"": 1, ""componentType"": 5126, ""count"": {5}, ""type"": ""VEC3"" }},
     {{ ""bufferView"": 2, ""componentType"": 5125, ""count"": {12}, ""type"": ""SCALAR"" }}
-  ],
-  ""meshes"": [{{ ""primitives"": [{{ ""attributes"": {{ ""POSITION"": 0, ""NORMAL"": 1 }}, ""indices"": 2 }}] }}],
+  ]{13},
+  ""meshes"": [{{ ""primitives"": [{{ ""attributes"": {{ ""POSITION"": 0, ""NORMAL"": 1 }}, ""indices"": 2{14} }}] }}],
   ""nodes"": [{{ ""mesh"": 0 }}],
   ""scenes"": [{{ ""nodes"": [0] }}],
   ""scene"": 0
@@ -1253,7 +1320,9 @@ namespace DXTnavis.Services.Geometry
                     meshData.VertexCount,    // {5}
                     sMinX, sMinY, sMinZ,     // {6}{7}{8}
                     sMaxX, sMaxY, sMaxZ,     // {9}{10}{11}
-                    meshData.Indices.Count); // {12}
+                    meshData.Indices.Count,  // {12}
+                    materialSection,         // {13}
+                    materialRef);            // {14}
             }
             else
             {
@@ -1269,8 +1338,8 @@ namespace DXTnavis.Services.Geometry
   ""accessors"": [
     {{ ""bufferView"": 0, ""componentType"": 5126, ""count"": {3}, ""type"": ""VEC3"", ""min"": [{4}, {5}, {6}], ""max"": [{7}, {8}, {9}] }},
     {{ ""bufferView"": 1, ""componentType"": 5125, ""count"": {10}, ""type"": ""SCALAR"" }}
-  ],
-  ""meshes"": [{{ ""primitives"": [{{ ""attributes"": {{ ""POSITION"": 0 }}, ""indices"": 1 }}] }}],
+  ]{11},
+  ""meshes"": [{{ ""primitives"": [{{ ""attributes"": {{ ""POSITION"": 0 }}, ""indices"": 1{12} }}] }}],
   ""nodes"": [{{ ""mesh"": 0 }}],
   ""scenes"": [{{ ""nodes"": [0] }}],
   ""scene"": 0
@@ -1281,7 +1350,9 @@ namespace DXTnavis.Services.Geometry
                     meshData.VertexCount,
                     sMinX, sMinY, sMinZ,
                     sMaxX, sMaxY, sMaxZ,
-                    meshData.Indices.Count);
+                    meshData.Indices.Count,
+                    materialSection,         // {11}
+                    materialRef);            // {12}
             }
         }
 
@@ -1368,6 +1439,11 @@ namespace DXTnavis.Services.Geometry
         /// "full_mesh", "box_placeholder", "gap_supplemented", "partial_retry_success", "skipped_container"
         /// </summary>
         public string Quality { get; set; }
+
+        /// <summary>
+        /// Material diffuse color (R, G, B, A) in 0.0–1.0 range. Null if no color available.
+        /// </summary>
+        public float[] DiffuseColor { get; set; }
     }
 
     /// <summary>
@@ -1748,22 +1824,4 @@ namespace DXTnavis.Services.Geometry
 
                 if (raw == null) return null;
 
-                var arr = raw as Array;
-                if (arr == null) return null;
-
-                int len = arr.Length;
-                var result = new float[len];
-                int lb = arr.GetLowerBound(0);
-                for (int i = 0; i < len; i++)
-                {
-                    result[i] = Convert.ToSingle(arr.GetValue(lb + i));
-                }
-                return result;
-            }
-            catch
-            {
-                return null;
-            }
-        }
-    }
-}
+                var arr = raw as Array

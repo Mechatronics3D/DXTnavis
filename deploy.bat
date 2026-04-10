@@ -3,8 +3,8 @@ echo === DXTnavis Deployment Script ===
 echo Requires Administrator privileges to copy to Program Files
 echo.
 
-set SOURCE=C:\Users\Yoon taegwan\Desktop\AWP_2025\개발폴더\dxtnavis\bin\Debug
-set TARGET=C:\Program Files\Autodesk\Navisworks Manage 2025\Plugins
+set SOURCE=%~dp0bin\Debug
+set TARGET=C:\Program Files\Autodesk\Navisworks Manage 2026\Plugins\DXTnavis
 
 echo Source: %SOURCE%
 echo Target: %TARGET%

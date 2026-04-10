@@ -1,5 +1,5 @@
-$dest = "C:\Program Files\Autodesk\Navisworks Manage 2025\Plugins\DXTnavis"
-$src = "C:\Users\Yoon taegwan\Desktop\AWP_2025\개발폴더\dxtnavis"
+$dest = "C:\Program Files\Autodesk\Navisworks Manage 2026\Plugins\DXTnavis"
+$src = $PSScriptRoot
 
 Write-Host "=== DXTnavis Deploy ===" -ForegroundColor Green
 

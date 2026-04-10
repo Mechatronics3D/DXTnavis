@@ -1,8 +1,8 @@
 @echo off
 echo === DXTnavis Manual Deploy ===
 
-set DEST=C:\Program Files\Autodesk\Navisworks Manage 2025\Plugins\DXTnavis
-set SRC=C:\Users\Yoon taegwan\Desktop\AWP_2025\개발폴더\dxtnavis
+set DEST=C:\Program Files\Autodesk\Navisworks Manage 2026\Plugins\DXTnavis
+set SRC=%~dp0
 
 if not exist "%DEST%" mkdir "%DEST%"
 
@@ -38,6 +38,30 @@ copy /Y "%SRC%\packages\System.Threading.Tasks.Extensions.4.5.4\lib\net461\Syste
 
 echo Copying System.ValueTuple.dll...
 copy /Y "%SRC%\packages\System.ValueTuple.4.5.0\lib\net47\System.ValueTuple.dll" "%DEST%\"
+
+echo Copying ClosedXML.dll...
+copy /Y "%SRC%\bin\Debug\ClosedXML.dll" "%DEST%\"
+
+echo Copying ClosedXML.Parser.dll...
+copy /Y "%SRC%\packages\ClosedXML.Parser.2.0.0\lib\netstandard2.0\ClosedXML.Parser.dll" "%DEST%\"
+
+echo Copying DocumentFormat.OpenXml.dll...
+copy /Y "%SRC%\bin\Debug\DocumentFormat.OpenXml.dll" "%DEST%\"
+
+echo Copying SixLabors.Fonts.dll...
+copy /Y "%SRC%\bin\Debug\SixLabors.Fonts.dll" "%DEST%\"
+
+echo Copying ExcelNumberFormat.dll...
+copy /Y "%SRC%\packages\ExcelNumberFormat.1.1.0\lib\netstandard2.0\ExcelNumberFormat.dll" "%DEST%\"
+
+echo Copying System.IO.Packaging.dll...
+copy /Y "%SRC%\bin\Debug\System.IO.Packaging.dll" "%DEST%\"
+
+echo Copying Irony.dll...
+copy /Y "%SRC%\bin\Debug\Irony.dll" "%DEST%\"
+
+echo Copying XLParser.dll...
+copy /Y "%SRC%\bin\Debug\XLParser.dll" "%DEST%\"
 
 echo.
 echo === Deploy Complete ===
