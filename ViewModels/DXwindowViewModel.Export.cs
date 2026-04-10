@@ -1914,6 +1914,51 @@ namespace DXTnavis.ViewModels
                 sw.Stop();
                 spatialWriter.WriteSummary(adjacencies, groups, outputDir, sw.Elapsed.TotalSeconds);
 
+                // ──── Export Report ────
+                int glbFileCount = 0;
+                try { glbFileCount = System.IO.Directory.GetFiles(meshDir, "*.glb").Length; } catch { }
+
+                var reportLines = new System.Text.StringBuilder();
+                reportLines.AppendLine("DXTnavis Export Report");
+                reportLines.AppendLine(string.Format("Generated: {0:yyyy-MM-dd HH:mm:ss}", DateTime.Now));
+                reportLines.AppendLine(string.Format("Duration:  {0:F1}s", sw.Elapsed.TotalSeconds));
+                reportLines.AppendLine();
+                reportLines.AppendLine("Files and Folders");
+                reportLines.AppendLine("─────────────────");
+                foreach (var file in System.IO.Directory.GetFiles(outputDir))
+                    reportLines.AppendLine(string.Format("  {0}", System.IO.Path.GetFileName(file)));
+                foreach (var dir in System.IO.Directory.GetDirectories(outputDir))
+                {
+                    string dirName = System.IO.Path.GetFileName(dir);
+                    if (dirName == "mesh")
+                        reportLines.AppendLine(string.Format("  mesh/  ({0} GLB files)", glbFileCount));
+                    else
+                        reportLines.AppendLine(string.Format("  {0}/  ({1} files)", dirName, System.IO.Directory.GetFiles(dir).Length));
+                }
+                reportLines.AppendLine();
+                reportLines.AppendLine("Summary");
+                reportLines.AppendLine("───────");
+                reportLines.AppendLine(string.Format("  Objects:          {0:N0}", geometries.Count));
+                reportLines.AppendLine(string.Format("  Unified CSV rows: {0:N0}", unifiedCount));
+                reportLines.AppendLine(string.Format("  GLB meshes:       {0:N0}", glbFileCount));
+                reportLines.AppendLine(string.Format("  Container skip:   {0:N0}", containerIds.Count));
+                reportLines.AppendLine(string.Format("  Partial container:{0:N0}", partialContainerCount));
+                reportLines.AppendLine(string.Format("  FBX fallback:     {0:N0}", fbxFallbackCount));
+                reportLines.AppendLine(string.Format("  Box fallback:     {0:N0}", fallbackCount));
+                reportLines.AppendLine(string.Format("  Adjacencies:      {0:N0}", adjacencies.Count));
+                reportLines.AppendLine(string.Format("  Connected groups: {0:N0}", groups.Count));
+                reportLines.AppendLine();
+                reportLines.AppendLine("Validation");
+                reportLines.AppendLine("──────────");
+                reportLines.AppendLine(string.Format("  FAIL_NO_EXTRACT:    {0:N0}", verdictFailCount));
+                reportLines.AppendLine(string.Format("  FAIL_GLB_MISSING:   {0:N0}", verdictGlbMissing));
+                reportLines.AppendLine(string.Format("  FAIL_GLB_EMPTY:     {0:N0}", verdictGlbEmpty));
+                reportLines.AppendLine(string.Format("  WARN_BOX:           {0:N0}", verdictWarnCount));
+                reportLines.AppendLine(string.Format("  WARN_FBX_BATCH_ONLY:{0:N0}", verdictFbxBatchOnly));
+
+                var reportPath = System.IO.Path.Combine(outputDir, "export_report.txt");
+                System.IO.File.WriteAllText(reportPath, reportLines.ToString(), System.Text.Encoding.UTF8);
+
                 ExportProgressPercentage = 100;
                 ExportStatusMessage = "Full Pipeline Export 완료!";
 
