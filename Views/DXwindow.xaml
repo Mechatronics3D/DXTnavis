@@ -595,7 +595,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <Button Content="📦 Export"
                                     Command="{Binding ExportFullPipelineCommand}"
-                                    ToolTip="선택 객체 통합 출력: AllProperties + Unified CSV + Geometry + Mesh GLB + Adjacency"
+                                    ToolTip="선택 객체 통합 출력: Simplified 체크 시 병합 GLB, 미체크 시 Full Pipeline"
                                     Width="130" FontWeight="Bold">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource ActionButton}">
@@ -610,6 +610,10 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
+                            <CheckBox Content="Simplified"
+                                      IsChecked="{Binding IsSimplifiedExport}"
+                                      ToolTip="Simplified: merge meshes by hierarchy into single GLB with PDS metadata"
+                                      VerticalAlignment="Center" Margin="6,0,0,0" FontSize="11"/>
                             <Button Content="📊 AllProperties"
                                     Style="{StaticResource ActionButton}"
                                     Command="{Binding ExportAllPropertiesCommand}"

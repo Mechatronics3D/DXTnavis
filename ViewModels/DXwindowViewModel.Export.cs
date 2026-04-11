@@ -2123,6 +2123,264 @@ namespace DXTnavis.ViewModels
             }
         }
 
+        /// <summary>
+        /// Simplified GLB Export: merges leaf meshes by hierarchy ancestor,
+        /// producing ~hundreds of nodes instead of 93K+ individual objects.
+        /// Includes PDS metadata in a sidecar JSON.
+        /// </summary>
+        private async System.Threading.Tasks.Task ExportSimplifiedGlbAsync()
+        {
+            try
+            {
+                // 폴더 선택
+                var folderDialog = new System.Windows.Forms.FolderBrowserDialog
+                {
+                    Description = "Simplified GLB 저장 폴더를 선택하세요",
+                    ShowNewFolderButton = true
+                };
+                if (folderDialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+
+                IsExporting = true;
+                ExportProgressPercentage = 0;
+                ExportStatusMessage = "Simplified GLB: Syncing selection...";
+                FlushUI();
+
+                var doc = Autodesk.Navisworks.Api.Application.ActiveDocument;
+                if (doc == null)
+                {
+                    MessageBox.Show("Navisworks 문서가 열려있지 않습니다.", "오류", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                // 선택된 그룹의 ObjectId 수집
+                var selectedObjectIds = new HashSet<Guid>(
+                    FilteredObjectGroups
+                        .Where(g => g.IsSelected)
+                        .Select(g => g.ObjectId));
+
+                ExportStatusMessage = string.Format("Simplified GLB: Building model index ({0} objects)...", selectedObjectIds.Count);
+                FlushUI();
+
+                // 전체 모델을 1회 순회하여 매칭
+                var modelItems = new ModelItemCollection();
+                foreach (var model in doc.Models)
+                {
+                    if (model?.RootItem == null) continue;
+                    CollectMatchingItems(model.RootItem, selectedObjectIds, modelItems);
+                }
+
+                if (modelItems.Count == 0)
+                {
+                    MessageBox.Show("선택된 객체를 Navisworks에서 찾을 수 없습니다.", "오류", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                doc.CurrentSelection.Clear();
+                doc.CurrentSelection.CopyFrom(modelItems);
+                var selectedItems = doc.CurrentSelection.SelectedItems;
+
+                string outputDir = System.IO.Path.Combine(folderDialog.SelectedPath,
+                    string.Format("simplified_export_{0:yyyyMMdd_HHmmss}", DateTime.Now));
+                System.IO.Directory.CreateDirectory(outputDir);
+
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+
+                // ── Stage 1: Geometry BBox 추출 (modelItemMap 구축) ──
+                ExportStatusMessage = "Simplified GLB: [1/3] Geometry 추출 중...";
+                ExportProgressPercentage = 5;
+                FlushUI();
+
+                var geoExtractor = new Services.Geometry.GeometryExtractor();
+                geoExtractor.ProgressChanged += (s, p) =>
+                {
+                    ExportProgressPercentage = 5 + (int)(p * 0.15);
+                    FlushUI();
+                };
+                geoExtractor.StatusChanged += (s, msg) => ExportStatusMessage = "Simplified GLB: [1/3] " + msg;
+
+                var geometries = geoExtractor.ExtractFromSelection(selectedItems);
+                var modelItemMap = geoExtractor.LastModelItemMap;
+                var parentChildMap = geoExtractor.LastParentChildMap;
+
+                // Container detection (same logic as full pipeline)
+                var containerIds = new HashSet<Guid>();
+                foreach (var kvp in parentChildMap)
+                {
+                    var parentId = kvp.Key;
+                    var childIds = kvp.Value;
+
+                    bool hasExportedChild = false;
+                    foreach (var childId in childIds)
+                    {
+                        if (geometries.ContainsKey(childId)) { hasExportedChild = true; break; }
+                    }
+                    if (!hasExportedChild) continue;
+
+                    if (!geometries.ContainsKey(parentId) || geometries[parentId].BBox == null)
+                    {
+                        containerIds.Add(parentId);
+                        continue;
+                    }
+
+                    double parentVol = geometries[parentId].BBox.GetVolume();
+                    if (parentVol < 1e-9) { containerIds.Add(parentId); continue; }
+
+                    double childrenVolSum = 0;
+                    foreach (var childId in childIds)
+                    {
+                        if (geometries.ContainsKey(childId) && geometries[childId].BBox != null)
+                            childrenVolSum += geometries[childId].BBox.GetVolume();
+                    }
+                    if (childrenVolSum / parentVol >= 0.5)
+                        containerIds.Add(parentId);
+                }
+
+                ExportProgressPercentage = 20;
+                FlushUI();
+
+                // ── Stage 2: Mesh extraction ──
+                ExportStatusMessage = string.Format("Simplified GLB: [2/3] Mesh 추출 중... ({0:N0}개 객체)", modelItemMap.Count);
+                FlushUI();
+
+                var gltfEntries = new List<Services.Geometry.GltfMeshEntry>();
+
+                using (var meshExtractor = new Services.Geometry.MeshExtractor())
+                {
+                    meshExtractor.StatusChanged += (s, msg) => ExportStatusMessage = "Simplified GLB: [2/3] " + msg;
+
+                    var allItems = new List<KeyValuePair<Guid, ModelItem>>(modelItemMap);
+                    int meshProcessed = 0;
+                    int meshTotal = allItems.Count;
+
+                    ExportGlbProgressText = string.Format("0 / {0}", meshTotal);
+
+                    foreach (var kvp in allItems)
+                    {
+                        var objectId = kvp.Key;
+                        var item = kvp.Value;
+
+                        try
+                        {
+                            if (containerIds.Contains(objectId))
+                            {
+                                meshProcessed++;
+                                if (meshProcessed % 50 == 0 || meshProcessed == meshTotal)
+                                    ExportProgressPercentage = 20 + (int)(50.0 * meshProcessed / meshTotal);
+                                if (meshProcessed % 10 == 0) FlushUI();
+                                continue;
+                            }
+
+                            var meshData = meshExtractor.ExtractMesh(item, objectId);
+
+                            if (meshData != null && meshData.VertexCount > 0)
+                            {
+                                gltfEntries.Add(new Services.Geometry.GltfMeshEntry
+                                {
+                                    ObjectId = objectId,
+                                    NodeName = item.DisplayName ?? objectId.ToString("D"),
+                                    MeshData = meshData
+                                });
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine(
+                                string.Format("[SimplifiedGlb] Mesh skip {0}: {1}", objectId, ex.Message));
+                        }
+
+                        meshProcessed++;
+                        ExportGlbProgressText = string.Format("{0} / {1}", meshProcessed, meshTotal);
+                        if (meshProcessed % 50 == 0 || meshProcessed == meshTotal)
+                            ExportProgressPercentage = 20 + (int)(50.0 * meshProcessed / meshTotal);
+                        if (meshProcessed % 10 == 0) FlushUI();
+                    }
+                }
+                ExportGlbProgressText = string.Empty;
+                ExportProgressPercentage = 70;
+                FlushUI();
+
+                // ── Stage 3: Merge & Export ──
+                if (gltfEntries.Count == 0)
+                {
+                    MessageBox.Show("추출된 Mesh가 없습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                ExportStatusMessage = string.Format("Simplified GLB: [3/3] {0:N0}개 mesh를 그룹 병합 중...", gltfEntries.Count);
+                FlushUI();
+
+                // Auto-detect merge depth
+                int mergeDepth = Services.Geometry.SimplifiedGlbExporter.AutoDetectMergeDepth(modelItemMap);
+
+                var simplifiedExporter = new Services.Geometry.SimplifiedGlbExporter();
+                simplifiedExporter.ProgressChanged += (s, p) =>
+                {
+                    ExportProgressPercentage = 70 + (int)(p * 0.25);
+                    FlushUI();
+                };
+                simplifiedExporter.StatusChanged += (s, msg) =>
+                    ExportStatusMessage = "Simplified GLB: [3/3] " + msg;
+
+                var glbPath = System.IO.Path.Combine(outputDir, "simplified.glb");
+                var metadataPath = System.IO.Path.Combine(outputDir, "metadata.json");
+
+                var (nodeCount, totalTriangles) = simplifiedExporter.Export(
+                    gltfEntries, modelItemMap, mergeDepth, glbPath, metadataPath);
+
+                sw.Stop();
+
+                // Write summary
+                var reportLines = new System.Text.StringBuilder();
+                reportLines.AppendLine("DXTnavis Simplified GLB Export Report");
+                reportLines.AppendLine(string.Format("Generated: {0:yyyy-MM-dd HH:mm:ss}", DateTime.Now));
+                reportLines.AppendLine(string.Format("Duration:  {0:F1}s", sw.Elapsed.TotalSeconds));
+                reportLines.AppendLine();
+                reportLines.AppendLine(string.Format("Input objects:  {0:N0}", gltfEntries.Count));
+                reportLines.AppendLine(string.Format("Merge depth:    {0}", mergeDepth));
+                reportLines.AppendLine(string.Format("Output nodes:   {0:N0}", nodeCount));
+                reportLines.AppendLine(string.Format("Total triangles:{0:N0}", totalTriangles));
+                reportLines.AppendLine(string.Format("Reduction:      {0:N0} → {1:N0} ({2:P1})",
+                    gltfEntries.Count, nodeCount,
+                    gltfEntries.Count > 0 ? 1.0 - (double)nodeCount / gltfEntries.Count : 0));
+                reportLines.AppendLine();
+                reportLines.AppendLine("Files:");
+                reportLines.AppendLine("  simplified.glb   - Merged 3D model");
+                reportLines.AppendLine("  metadata.json    - PDS metadata per group");
+                reportLines.AppendLine("  export_report.txt - This file");
+
+                var reportPath = System.IO.Path.Combine(outputDir, "export_report.txt");
+                System.IO.File.WriteAllText(reportPath, reportLines.ToString(), System.Text.Encoding.UTF8);
+
+                ExportProgressPercentage = 100;
+                ExportStatusMessage = "Simplified GLB 완료!";
+
+                MessageBox.Show(
+                    string.Format("Simplified GLB Export 완료!\n\n"
+                        + "입력 객체: {0:N0}개\n"
+                        + "병합 깊이: {1}\n"
+                        + "출력 노드: {2:N0}개\n"
+                        + "총 삼각형: {3:N0}\n"
+                        + "감소율:    {4:P1}\n\n"
+                        + "처리 시간: {5:F1}초\n"
+                        + "저장 위치: {6}",
+                        gltfEntries.Count, mergeDepth, nodeCount, totalTriangles,
+                        gltfEntries.Count > 0 ? 1.0 - (double)nodeCount / gltfEntries.Count : 0,
+                        sw.Elapsed.TotalSeconds, outputDir),
+                    "Simplified GLB",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                ExportStatusMessage = string.Format("오류: {0}", ex.Message);
+                MessageBox.Show(string.Format("Simplified GLB 오류:\n\n{0}", ex.Message), "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                IsExporting = false;
+            }
+        }
+
         #endregion
     }
 }

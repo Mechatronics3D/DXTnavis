@@ -25,6 +25,7 @@ namespace DXTnavis.ViewModels
 
         private bool _isMonitoring;
         private bool _isExporting;
+        private bool _isSimplifiedExport;
         private int _exportProgressPercentage;
         private string _exportGlbProgressText;
                 /// <summary>
@@ -147,6 +148,19 @@ namespace DXTnavis.ViewModels
             {
                 _isExporting = value;
                 OnPropertyChanged(nameof(IsExporting));
+            }
+        }
+
+        /// <summary>
+        /// Simplified Export 모드: 체크 시 hierarchy 병합 GLB, 미체크 시 Full Pipeline
+        /// </summary>
+        public bool IsSimplifiedExport
+        {
+            get => _isSimplifiedExport;
+            set
+            {
+                _isSimplifiedExport = value;
+                OnPropertyChanged(nameof(IsSimplifiedExport));
             }
         }
 
@@ -761,9 +775,15 @@ namespace DXTnavis.ViewModels
                 execute: async _ => await ExportSelectionAdjacencyAsync(),
                 canExecute: _ => Autodesk.Navisworks.Api.Application.ActiveDocument?.CurrentSelection?.SelectedItems?.Count > 0);
 
-            // Export Command (selection-based) — 그룹 선택 시에만 활성화
+            // Export Command (selection-based) — Simplified 체크 시 병합 GLB, 미체크 시 Full Pipeline
             ExportFullPipelineCommand = new AsyncRelayCommand(
-                execute: async _ => await ExportFullPipelineAsync(),
+                execute: async _ =>
+                {
+                    if (_isSimplifiedExport)
+                        await ExportSimplifiedGlbAsync();
+                    else
+                        await ExportFullPipelineAsync();
+                },
                 canExecute: _ => SelectedGroupCount > 0);
 
             // Refined XLSX Export Command (ClosedXML)

@@ -63,50 +63,8 @@ echo.
 :: ──── Deploy (optional) ────
 if %DEPLOY%==0 goto end
 
-set DEST=C:\Program Files\Autodesk\Navisworks Manage 2026\Plugins\DXTnavis
-echo === Deploying to %DEST% ===
-
-if not exist "%DEST%" mkdir "%DEST%"
-
-:: Main assembly
-copy /Y "bin\%CONFIG%\DXTnavis.dll" "%DEST%\" >nul && echo   DXTnavis.dll
-
-:: Dependencies from bin output
-for %%f in (
-    ClosedXML.dll
-    DocumentFormat.OpenXml.dll
-    SixLabors.Fonts.dll
-    System.IO.Packaging.dll
-    Irony.dll
-    XLParser.dll
-) do (
-    if exist "bin\%CONFIG%\%%f" copy /Y "bin\%CONFIG%\%%f" "%DEST%\" >nul && echo   %%f
-)
-
-:: Dependencies from packages
-call :deploy_pkg "Newtonsoft.Json.13.0.4\lib\net45\Newtonsoft.Json.dll"
-call :deploy_pkg "System.Text.Json.7.0.0\lib\net462\System.Text.Json.dll"
-call :deploy_pkg "System.Text.Encodings.Web.7.0.0\lib\net462\System.Text.Encodings.Web.dll"
-call :deploy_pkg "Microsoft.Bcl.AsyncInterfaces.7.0.0\lib\net462\Microsoft.Bcl.AsyncInterfaces.dll"
-call :deploy_pkg "System.Buffers.4.5.1\lib\net461\System.Buffers.dll"
-call :deploy_pkg "System.Memory.4.5.5\lib\net461\System.Memory.dll"
-call :deploy_pkg "System.Numerics.Vectors.4.5.0\lib\net46\System.Numerics.Vectors.dll"
-call :deploy_pkg "System.Runtime.CompilerServices.Unsafe.6.0.0\lib\net461\System.Runtime.CompilerServices.Unsafe.dll"
-call :deploy_pkg "System.Threading.Tasks.Extensions.4.5.4\lib\net461\System.Threading.Tasks.Extensions.dll"
-call :deploy_pkg "System.ValueTuple.4.5.0\lib\net47\System.ValueTuple.dll"
-call :deploy_pkg "ClosedXML.Parser.2.0.0\lib\netstandard2.0\ClosedXML.Parser.dll"
-call :deploy_pkg "ExcelNumberFormat.1.1.0\lib\netstandard2.0\ExcelNumberFormat.dll"
-
 echo.
-echo [OK] Deploy complete.
-goto end
-
-:deploy_pkg
-if exist "packages\%~1" (
-    copy /Y "packages\%~1" "%DEST%\" >nul
-    for %%n in ("%~1") do echo   %%~nxn
-)
-exit /b
+call "%~dp0deploy.bat"
 
 :end
 endlocal
