@@ -3,15 +3,20 @@ $src = $PSScriptRoot
 
 Write-Host "=== DXTnavis Deploy ===" -ForegroundColor Green
 
-# Create directory
-if (!(Test-Path $dest)) {
+# Clean existing plugin before deploy
+if (Test-Path $dest) {
+    Write-Host "Cleaning existing plugin folder..." -ForegroundColor Yellow
+    Remove-Item "$dest\*.dll" -Force -ErrorAction SilentlyContinue
+    Remove-Item "$dest\*.pdb" -Force -ErrorAction SilentlyContinue
+    Write-Host "Cleaned."
+} else {
     New-Item -ItemType Directory -Path $dest -Force | Out-Null
     Write-Host "Created: $dest"
 }
 
 # Copy files
 $files = @(
-    @{src="bin\Debug\DXTnavis.dll"; name="DXTnavis.dll"},
+    @{src="bin\Release\DXTnavis.dll"; name="DXTnavis.dll"},
     @{src="packages\Newtonsoft.Json.13.0.4\lib\net45\Newtonsoft.Json.dll"; name="Newtonsoft.Json.dll"},
     @{src="packages\System.Text.Json.7.0.0\lib\net462\System.Text.Json.dll"; name="System.Text.Json.dll"},
     @{src="packages\System.Text.Encodings.Web.7.0.0\lib\net462\System.Text.Encodings.Web.dll"; name="System.Text.Encodings.Web.dll"},

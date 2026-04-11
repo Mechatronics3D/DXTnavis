@@ -1,0 +1,17 @@
+[workspace]
+name = "dxtnavis-tools"
+version = "0.1.0"
+description = "CLI tools for DXTnavis post-processing"
+channels = ["conda-forge"]
+platforms = ["win-64"]
+
+[dependencies]
+python = ">=3.11"
+
+[pypi-dependencies]
+pygltflib = "*"
+trimesh = "*"
+numpy = "*"
+
+[tasks]
+merge-glb = "python merge_glb.py"

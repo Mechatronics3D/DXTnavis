@@ -70,6 +70,14 @@
       <HintPath>packages\Irony.NetCore.1.0.11\lib\net461\Irony.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="SharpGLTF.Core">
+      <HintPath>packages\SharpGLTF.Core.1.0.1\lib\netstandard2.0\SharpGLTF.Core.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="SharpGLTF.Toolkit">
+      <HintPath>packages\SharpGLTF.Toolkit.1.0.1\lib\netstandard2.0\SharpGLTF.Toolkit.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="SixLabors.Fonts">
       <HintPath>packages\SixLabors.Fonts.1.0.0\lib\netstandard2.0\SixLabors.Fonts.dll</HintPath>
       <Private>True</Private>
@@ -249,6 +257,7 @@
     <Compile Include="Services\Geometry\GeometryFileWriter.cs" />
     <Compile Include="Services\Geometry\MeshExtractor.cs" />
     <Compile Include="Services\Geometry\FbxExportService.cs" />
+    <Compile Include="Services\Geometry\GltfSceneExporter.cs" />
     <!-- Phase 29: Object Validation -->
     <Compile Include="Models\Validation\ObjectValidationRecord.cs" />
     <Compile Include="Services\Validation\ObjectValidationService.cs" />

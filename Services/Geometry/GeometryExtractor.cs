@@ -248,7 +248,21 @@ namespace DXTnavis.Services.Geometry
                 return new Dictionary<Guid, GeometryRecord>();
             }
 
-            return ExtractAllBoundingBoxes(selection, cancellationToken);
+            // 선택된 아이템에서 재귀적으로 모든 자식 수집 + parent-child 관계 기록
+            var allItems = new List<ModelItem>();
+            var childToParent = new Dictionary<ModelItem, ModelItem>(new ModelItemReferenceComparer());
+            foreach (var item in selection)
+            {
+                allItems.Add(item);
+                if (item.Children != null && item.Children.Any())
+                {
+                    CollectAllModelItems(item.Children, allItems, childToParent, item);
+                }
+            }
+
+            OnStatusChanged($"선택 객체에서 총 {allItems.Count:N0}개 객체 발견");
+
+            return ExtractAllBoundingBoxes(allItems, cancellationToken, childToParent);
         }
 
         /// <summary>
