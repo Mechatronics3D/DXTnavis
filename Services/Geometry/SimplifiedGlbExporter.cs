@@ -5,8 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Text;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using SharpGLTF.Geometry;
 using SharpGLTF.Geometry.VertexTypes;
 using SharpGLTF.Materials;
@@ -410,23 +408,37 @@ namespace DXTnavis.Services.Geometry
 
         private void WriteMetadataJson(List<Dictionary<string, object>> records, string path)
         {
-            var jsonArray = new JArray();
-            foreach (var rec in records)
+            var sb = new StringBuilder();
+            sb.AppendLine("[");
+            for (int i = 0; i < records.Count; i++)
             {
-                var obj = new JObject();
-                obj["group"] = (string)rec["group"];
-                obj["objectCount"] = (int)rec["objectCount"];
-                obj["triangles"] = (int)rec["triangles"];
-
+                var rec = records[i];
                 var meta = (Dictionary<string, string>)rec["metadata"];
-                var metaObj = new JObject();
+                sb.AppendLine("  {");
+                sb.AppendFormat("    \"group\": {0},\n", EscJson((string)rec["group"]));
+                sb.AppendFormat("    \"objectCount\": {0},\n", rec["objectCount"]);
+                sb.AppendFormat("    \"triangles\": {0},\n", rec["triangles"]);
+                sb.AppendLine("    \"metadata\": {");
+                int j = 0;
                 foreach (var kv in meta)
-                    metaObj[kv.Key] = kv.Value;
-                obj["metadata"] = metaObj;
-
-                jsonArray.Add(obj);
+                {
+                    sb.AppendFormat("      {0}: {1}", EscJson(kv.Key), EscJson(kv.Value));
+                    sb.AppendLine(j < meta.Count - 1 ? "," : "");
+                    j++;
+                }
+                sb.AppendLine("    }");
+                sb.Append("  }");
+                sb.AppendLine(i < records.Count - 1 ? "," : "");
             }
-            File.WriteAllText(path, jsonArray.ToString(Formatting.Indented), Encoding.UTF8);
+            sb.AppendLine("]");
+            File.WriteAllText(path, sb.ToString(), Encoding.UTF8);
+        }
+
+        private static string EscJson(string s)
+        {
+            if (s == null) return "null";
+            return "\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"")
+                           .Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t") + "\"";
         }
 
         private static VERTEX MakeVertex(List<float> verts, List<float> norms, int index, bool hasNormals)
