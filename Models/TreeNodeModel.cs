@@ -6,11 +6,22 @@ namespace DXTnavis.Models
 {
     /// <summary>
     /// TreeView에 표시될 계층 구조 노드 모델
+    /// Lazy loading 지원: 자식 노드는 확장 시 on-demand 로드
     /// </summary>
     public class TreeNodeModel : INotifyPropertyChanged
     {
         private bool _isSelected;
         private bool _isExpanded;
+        private bool _isLazyLoaded;
+
+        /// <summary>
+        /// Lazy loading 더미 자식 노드 (TreeView에서 확장 화살표 표시용)
+        /// </summary>
+        internal static readonly TreeNodeModel DummyChild = new TreeNodeModel
+        {
+            DisplayName = "Loading...",
+            Level = -1
+        };
 
         // Level별 색상 팔레트
         private static readonly string[] LevelColors = new[]
@@ -51,17 +62,17 @@ namespace DXTnavis.Models
         /// <summary>
         /// Level 기반 배경 색상
         /// </summary>
-        public string LevelColor => LevelColors[Math.Min(Level, LevelColors.Length - 1)];
+        public string LevelColor => LevelColors[Math.Min(Math.Max(Level, 0), LevelColors.Length - 1)];
 
         /// <summary>
         /// 노드 아이콘 (자식 유무에 따라)
         /// </summary>
-        public string NodeIcon => Children.Count > 0 ? "📁" : (HasGeometry ? "🔷" : "📄");
+        public string NodeIcon => Children.Count > 0 && !HasDummyChild ? "📁" : (HasGeometry ? "🔷" : "📄");
 
         /// <summary>
         /// 자식 개수 텍스트 (자식이 있을 때만 표시)
         /// </summary>
-        public string ChildCountText => Children.Count > 0 ? $"({Children.Count})" : "";
+        public string ChildCountText => Children.Count > 0 && !HasDummyChild ? $"({Children.Count})" : "";
 
         /// <summary>
         /// 형상 존재 여부
@@ -69,25 +80,69 @@ namespace DXTnavis.Models
         public bool HasGeometry { get; set; }
 
         /// <summary>
+        /// Navisworks ModelItem 참조 (lazy loading용, object로 저장하여 API 의존성 분리)
+        /// </summary>
+        public object SourceItem { get; set; }
+
+        /// <summary>
+        /// 자식이 아직 로드되지 않았는지 여부
+        /// </summary>
+        public bool HasDummyChild => Children.Count == 1 && Children[0] == DummyChild;
+
+        /// <summary>
+        /// Lazy loading 완료 여부
+        /// </summary>
+        public bool IsLazyLoaded
+        {
+            get => _isLazyLoaded;
+            set => _isLazyLoaded = value;
+        }
+
+        /// <summary>
         /// 자식 노드 컬렉션
         /// </summary>
         public ObservableCollection<TreeNodeModel> Children { get; set; }
 
         /// <summary>
-        /// 선택 상태
+        /// 자식 노드 lazy load 요청 이벤트
+        /// ViewModel에서 구독하여 Navisworks API로 자식 로드
+        /// </summary>
+        public event EventHandler LazyLoadRequested;
+
+        /// <summary>
+        /// 선택 상태 — 자식 노드에 연쇄 적용 (무통지 일괄 처리)
         /// </summary>
         public bool IsSelected
         {
             get => _isSelected;
             set
             {
-                _isSelected = value;
-                OnPropertyChanged(nameof(IsSelected));
+                if (_isSelected != value)
+                {
+                    // 자식을 통지 없이 일괄 설정한 뒤 한 번만 통지
+                    SetSelectionSilent(value);
+                    OnPropertyChanged(nameof(IsSelected));
+                }
             }
         }
 
         /// <summary>
-        /// 확장 상태
+        /// 자신과 모든 자손의 _isSelected를 PropertyChanged 없이 설정
+        /// </summary>
+        private void SetSelectionSilent(bool value)
+        {
+            _isSelected = value;
+            if (!HasDummyChild)
+            {
+                foreach (var child in Children)
+                {
+                    child.SetSelectionSilent(value);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 확장 상태 — 확장 시 lazy load 트리거
         /// </summary>
         public bool IsExpanded
         {
@@ -95,6 +150,13 @@ namespace DXTnavis.Models
             set
             {
                 _isExpanded = value;
+
+                // Lazy loading: 처음 확장할 때 자식 로드 요청
+                if (_isExpanded && HasDummyChild && !_isLazyLoaded)
+                {
+                    LazyLoadRequested?.Invoke(this, EventArgs.Empty);
+                }
+
                 OnPropertyChanged(nameof(IsExpanded));
             }
         }
@@ -105,7 +167,15 @@ namespace DXTnavis.Models
         }
 
         /// <summary>
-        /// 지정된 레벨까지 확장
+        /// 아직 로드되지 않은 자식이 있음을 표시하는 더미 자식 추가
+        /// </summary>
+        public void AddDummyChild()
+        {
+            Children.Add(DummyChild);
+        }
+
+        /// <summary>
+        /// 지정된 레벨까지 확장 (lazy-loaded 노드는 확장 시 자동 로드)
         /// </summary>
         /// <param name="targetLevel">확장할 최대 레벨</param>
         public void ExpandToLevel(int targetLevel)
@@ -113,9 +183,12 @@ namespace DXTnavis.Models
             if (Level < targetLevel)
             {
                 IsExpanded = true;
-                foreach (var child in Children)
+                if (!HasDummyChild)
                 {
-                    child.ExpandToLevel(targetLevel);
+                    foreach (var child in Children)
+                    {
+                        child.ExpandToLevel(targetLevel);
+                    }
                 }
             }
             else
@@ -130,9 +203,12 @@ namespace DXTnavis.Models
         public void CollapseAll()
         {
             IsExpanded = false;
-            foreach (var child in Children)
+            if (!HasDummyChild)
             {
-                child.CollapseAll();
+                foreach (var child in Children)
+                {
+                    child.CollapseAll();
+                }
             }
         }
 
@@ -142,9 +218,12 @@ namespace DXTnavis.Models
         public void ExpandAll()
         {
             IsExpanded = true;
-            foreach (var child in Children)
+            if (!HasDummyChild)
             {
-                child.ExpandAll();
+                foreach (var child in Children)
+                {
+                    child.ExpandAll();
+                }
             }
         }
 
@@ -155,6 +234,8 @@ namespace DXTnavis.Models
         /// <param name="expand">true=확장, false=축소</param>
         public void SetLevelExpansion(int targetLevel, bool expand)
         {
+            if (HasDummyChild) return;
+
             if (Level < targetLevel)
             {
                 // 부모 레벨: 대상 레벨에 도달하기 위해 확장
@@ -185,6 +266,8 @@ namespace DXTnavis.Models
         /// <param name="maxLevel">최대 확장 레벨</param>
         public void ExpandExactlyToLevel(int maxLevel)
         {
+            if (HasDummyChild) return;
+
             if (Level < maxLevel)
             {
                 IsExpanded = true;
@@ -205,6 +288,25 @@ namespace DXTnavis.Models
             else
             {
                 IsExpanded = false;
+            }
+        }
+
+        /// <summary>
+        /// 특정 레벨의 노드 선택/해제 (연쇄 없이 해당 레벨만)
+        /// </summary>
+        public void SetSelectionByLevel(int targetLevel, bool selected)
+        {
+            if (Level == targetLevel)
+            {
+                _isSelected = selected;
+                OnPropertyChanged(nameof(IsSelected));
+            }
+            if (!HasDummyChild)
+            {
+                foreach (var child in Children)
+                {
+                    child.SetSelectionByLevel(targetLevel, selected);
+                }
             }
         }
 

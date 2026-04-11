@@ -507,10 +507,14 @@ namespace DXTnavis.Services
                 return results;
 
             // 선택된 각 최상위 객체에 대해 재귀 순회 시작
+            int itemIndex = 0;
             foreach (ModelItem selectedItem in selectedItems)
             {
                 // 최상위 객체이므로 parentId는 Guid.Empty, level은 0
                 TraverseAndExtractProperties(selectedItem, Guid.Empty, 0, results);
+                itemIndex++;
+                if (itemIndex % 10 == 0)
+                    System.Windows.Forms.Application.DoEvents();
             }
 
             // PRD v8 Step 2: 추출 완료 후 통계 로깅

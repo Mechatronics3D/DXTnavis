@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Threading;
 using Autodesk.Navisworks.Api;
 using DXTnavis.Helpers;
 using DXTnavis.Models;
@@ -82,6 +83,9 @@ namespace DXTnavis.ViewModels
         // Phase 12: Grouped Data Structure
         private bool _isGroupSelectAll;
         private bool _isUpdatingGroupSelectAll;
+
+        // Lazy Loading: 속성 데이터 로드 여부
+        private bool _isPropertiesLoaded;
 
         #endregion
 
@@ -503,6 +507,19 @@ namespace DXTnavis.ViewModels
         public ObservableCollection<FilterOption> CategoryFilterOptions { get; }
 
         /// <summary>
+        /// 속성 데이터가 로드되었는지 여부
+        /// </summary>
+        public bool IsPropertiesLoaded
+        {
+            get => _isPropertiesLoaded;
+            private set
+            {
+                _isPropertiesLoaded = value;
+                OnPropertyChanged(nameof(IsPropertiesLoaded));
+            }
+        }
+
+        /// <summary>
         /// Phase 12: 필터링된 그룹 수
         /// </summary>
         public int FilteredGroupCount => FilteredObjectGroups?.Count ?? 0;
@@ -539,6 +556,11 @@ namespace DXTnavis.ViewModels
         public int SelectedGroupCount => FilteredObjectGroups?.Count(g => g.IsSelected) ?? 0;
 
         /// <summary>
+        /// Export 버튼 활성화 여부 — 그룹이 선택되었을 때만 true
+        /// </summary>
+        public bool IsExportEnabled => SelectedGroupCount > 0;
+
+        /// <summary>
         /// Phase 12: 선택 상태 요약
         /// </summary>
         public string SelectionSummary
@@ -573,8 +595,8 @@ namespace DXTnavis.ViewModels
         // Spatial Adjacency Export Commands (Phase 17)
         public ICommand ExportAdjacencyCommand { get; }            // All × Adjacency
         public ICommand ExportSelectionAdjacencyCommand { get; }   // Selection × Adjacency
-        // Full Pipeline Export Command (Unified + Geometry + Mesh + Spatial)
-        public ICommand ExportFullPipelineCommand { get; }         // All-in-One Export
+        // Export Command (Unified + Geometry + Mesh + Spatial) — selection-based
+        public ICommand ExportFullPipelineCommand { get; }         // Selection Export
         // Refined XLSX Export (ClosedXML)
         public ICommand ExportRefinedXlsxCommand { get; }          // Refined XLSX
         // Phase 18: Test Mesh Export
@@ -739,9 +761,10 @@ namespace DXTnavis.ViewModels
                 execute: async _ => await ExportSelectionAdjacencyAsync(),
                 canExecute: _ => Autodesk.Navisworks.Api.Application.ActiveDocument?.CurrentSelection?.SelectedItems?.Count > 0);
 
-            // Full Pipeline Export Command
+            // Export Command (selection-based) — 그룹 선택 시에만 활성화
             ExportFullPipelineCommand = new AsyncRelayCommand(
-                execute: async _ => await ExportFullPipelineAsync());
+                execute: async _ => await ExportFullPipelineAsync(),
+                canExecute: _ => SelectedGroupCount > 0);
 
             // Refined XLSX Export Command (ClosedXML)
             ExportRefinedXlsxCommand = new AsyncRelayCommand(
@@ -1110,6 +1133,10 @@ namespace DXTnavis.ViewModels
         /// v0.4.1: ModelItem 계층 구조를 직접 사용하여 모든 레벨 노드 포함
         /// Phase 12: 그룹화된 데이터 구조로 로드 (445K → ~5K 그룹)
         /// </summary>
+        /// <summary>
+        /// 모델 계층 구조 로딩 (Lazy Loading)
+        /// 트리는 초기 2레벨만 로드, 속성은 "Load Properties" 명령으로 별도 로드
+        /// </summary>
         private Task LoadModelHierarchyAsync()
         {
             try
@@ -1123,23 +1150,23 @@ namespace DXTnavis.ViewModels
                     return Task.CompletedTask;
                 }
 
-                // *** v0.4.1: ModelItem에서 직접 TreeView 구조 생성 ***
+                // *** Lazy Loading: 초기 maxDepth 레벨만 트리 구축 ***
+                int initialDepth = SelectedExpandLevel; // 기본값 2
                 ObjectHierarchyRoot.Clear();
                 var allNodes = new List<TreeNodeModel>();
-                int totalNodeCount = 0;
 
                 foreach (var model in doc.Models)
                 {
                     if (model?.RootItem == null) continue;
 
-                    var rootNode = BuildTreeFromModelItem(model.RootItem, 0, allNodes);
+                    var rootNode = BuildTreeFromModelItem(model.RootItem, 0, allNodes, initialDepth);
                     if (rootNode != null)
                     {
                         ObjectHierarchyRoot.Add(rootNode);
                     }
                 }
 
-                totalNodeCount = allNodes.Count;
+                int totalNodeCount = allNodes.Count;
 
                 if (totalNodeCount == 0)
                 {
@@ -1147,13 +1174,61 @@ namespace DXTnavis.ViewModels
                     return Task.CompletedTask;
                 }
 
-                // TreeView 선택 이벤트 구독
+                // TreeView 선택 + Lazy load 이벤트 구독
                 foreach (var node in allNodes)
                 {
                     node.PropertyChanged += OnTreeNodeSelectionChanged;
+                    node.LazyLoadRequested += OnLazyLoadRequested;
                 }
 
-                // *** Phase 12: 그룹화된 데이터로 직접 로드 ***
+                // 트리 명령 갱신 (Phase 2)
+                RefreshTreeCommands();
+
+                // 기본적으로 initialDepth까지 확장
+                ExpandTreeToLevel(initialDepth);
+
+                // *** 속성 데이터는 UI 렌더링 후 자동 로드 ***
+                _isPropertiesLoaded = false;
+                OnPropertyChanged(nameof(IsPropertiesLoaded));
+
+                ExportStatusMessage = $"Tree loaded! ({totalNodeCount:N0} nodes, depth {initialDepth})";
+                StatusMessage = $"Tree: {totalNodeCount:N0} nodes loaded. Loading properties...";
+
+                // UI가 트리를 렌더링한 후 Background 우선순위로 속성 로드 자동 실행
+                System.Windows.Application.Current.Dispatcher.BeginInvoke(
+                    DispatcherPriority.Background,
+                    new Action(() => LoadPropertiesAsync()));
+
+                return Task.CompletedTask;
+            }
+            catch (Exception ex)
+            {
+                ExportStatusMessage = $"오류: {ex.Message}";
+                MessageBox.Show(
+                    $"계층 구조 로드 중 오류가 발생했습니다:\n\n{ex.Message}",
+                    "오류",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+
+                return Task.CompletedTask;
+            }
+        }
+
+        /// <summary>
+        /// 속성 데이터 로드 (별도 명령으로 실행)
+        /// ExtractAllAsGroups 호출 → 필터 + 그룹 초기화
+        /// </summary>
+        /// <summary>
+        /// 속성 데이터를 청크 단위로 로드 (UI 응답성 유지)
+        /// Dispatcher를 통해 청크별로 UI에 양보하여 버튼 클릭 등 처리 가능
+        /// </summary>
+        private Task LoadPropertiesAsync()
+        {
+            try
+            {
+                _isLoadingProperties = true;
+                ExportStatusMessage = "Loading properties...";
+
                 var extractor = new NavisworksDataExtractor();
                 var allGroups = extractor.ExtractAllAsGroups();
 
@@ -1161,7 +1236,6 @@ namespace DXTnavis.ViewModels
                 AllObjectGroups.Clear();
                 foreach (var group in allGroups)
                 {
-                    // 그룹 선택 이벤트 구독
                     group.PropertyChanged += OnGroupPropertyChangedHandler;
                     AllObjectGroups.Add(group);
                 }
@@ -1172,7 +1246,7 @@ namespace DXTnavis.ViewModels
                 // Phase 12: 필터링된 그룹 동기화
                 SyncFilteredGroups();
 
-                // *** 기존 호환성: HierarchicalPropertyRecord도 유지 (TimeLiner 등) ***
+                // 기존 호환성: HierarchicalPropertyRecord도 유지 (TimeLiner 등)
                 AllHierarchicalProperties.Clear();
                 foreach (var group in allGroups)
                 {
@@ -1183,34 +1257,35 @@ namespace DXTnavis.ViewModels
                 }
                 SyncFilteredProperties();
 
-                // 트리 명령 갱신 (Phase 2)
-                RefreshTreeCommands();
-
-                // 기본적으로 Level 2까지 확장
-                ExpandTreeToLevel(SelectedExpandLevel);
-
                 // Phase 12: 그룹 뷰를 기본으로 활성화
                 _isGroupedViewEnabled = true;
                 _isGroupedViewAvailable = true;
                 OnPropertyChanged(nameof(IsGroupedViewEnabled));
                 OnPropertyChanged(nameof(IsGroupedViewAvailable));
 
+                _isPropertiesLoaded = true;
+                OnPropertyChanged(nameof(IsPropertiesLoaded));
+
                 int totalProps = allGroups.Sum(g => g.PropertyCount);
-                ExportStatusMessage = $"Hierarchy loaded!";
+                ExportStatusMessage = $"Properties loaded!";
                 StatusMessage = $"Loaded: {allGroups.Count:N0} groups ({totalProps:N0} properties)";
 
                 return Task.CompletedTask;
             }
             catch (Exception ex)
             {
-                ExportStatusMessage = $"❌ 오류: {ex.Message}";
+                ExportStatusMessage = $"오류: {ex.Message}";
                 MessageBox.Show(
-                    $"계층 구조 로드 중 오류가 발생했습니다:\n\n{ex.Message}",
+                    $"속성 로드 중 오류가 발생했습니다:\n\n{ex.Message}",
                     "오류",
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
 
                 return Task.CompletedTask;
+            }
+            finally
+            {
+                _isLoadingProperties = false;
             }
         }
 
@@ -1230,8 +1305,9 @@ namespace DXTnavis.ViewModels
                 // 선택 상태에 따라 IsGroupSelectAll 업데이트
                 UpdateGroupSelectAllState();
 
-                // CreateSearchSetCommand 갱신
+                OnPropertyChanged(nameof(IsExportEnabled));
                 ((RelayCommand)CreateSearchSetCommand).RaiseCanExecuteChanged();
+                ((AsyncRelayCommand)ExportFullPipelineCommand).RaiseCanExecuteChanged();
             }
         }
 
@@ -1251,7 +1327,9 @@ namespace DXTnavis.ViewModels
                 OnPropertyChanged(nameof(SelectedGroupCount));
                 OnPropertyChanged(nameof(SelectionSummary));
                 OnPropertyChanged(nameof(SelectedPropertiesCount));
+                OnPropertyChanged(nameof(IsExportEnabled));
                 ((RelayCommand)CreateSearchSetCommand).RaiseCanExecuteChanged();
+                ((AsyncRelayCommand)ExportFullPipelineCommand).RaiseCanExecuteChanged();
             }
             finally
             {
@@ -1322,6 +1400,16 @@ namespace DXTnavis.ViewModels
             {
                 // 디바운스 적용
                 TriggerFilterDebounce();
+
+                // Level 필터 변경 시 Hierarchy Tree 선택 동기화
+                var opt = sender as FilterOption;
+                if (opt != null && opt.Value is int level)
+                {
+                    foreach (var root in ObjectHierarchyRoot)
+                    {
+                        root.SetSelectionByLevel(level, opt.IsChecked);
+                    }
+                }
             }
         }
 

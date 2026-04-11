@@ -105,10 +105,14 @@ namespace DXTnavis.ViewModels
         }
 
         /// <summary>
-        /// v0.4.1: ModelItem에서 직접 TreeNodeModel 트리를 재귀적으로 구축
-        /// 속성 유무와 관계없이 모든 노드를 포함하여 완전한 계층 구조 생성
+        /// Lazy loading 기반 TreeNodeModel 트리 구축
+        /// maxDepth까지만 자식을 즉시 로드하고, 그 이후는 더미 자식으로 지연 로드
         /// </summary>
-        private TreeNodeModel BuildTreeFromModelItem(ModelItem item, int level, List<TreeNodeModel> allNodes)
+        /// <param name="item">Navisworks ModelItem</param>
+        /// <param name="level">현재 계층 레벨</param>
+        /// <param name="allNodes">모든 생성된 노드 목록 (이벤트 구독용)</param>
+        /// <param name="maxDepth">즉시 로드할 최대 깊이 (이 깊이 이후는 lazy load)</param>
+        private TreeNodeModel BuildTreeFromModelItem(ModelItem item, int level, List<TreeNodeModel> allNodes, int maxDepth = 2)
         {
             if (item == null || item.IsHidden)
                 return null;
@@ -119,22 +123,87 @@ namespace DXTnavis.ViewModels
                 ObjectId = item.InstanceGuid,
                 DisplayName = GetDisplayNameFromModelItem(item),
                 Level = level,
-                HasGeometry = item.HasGeometry
+                HasGeometry = item.HasGeometry,
+                SourceItem = item  // Lazy loading용 ModelItem 참조 저장
             };
 
             allNodes.Add(node);
 
-            // 재귀적으로 모든 자식 노드 추가 (속성 유무 무관)
-            foreach (ModelItem child in item.Children)
+            // maxDepth 이내: 자식을 즉시 로드
+            if (level < maxDepth)
             {
-                var childNode = BuildTreeFromModelItem(child, level + 1, allNodes);
+                foreach (ModelItem child in item.Children)
+                {
+                    var childNode = BuildTreeFromModelItem(child, level + 1, allNodes, maxDepth);
+                    if (childNode != null)
+                    {
+                        node.Children.Add(childNode);
+                    }
+                }
+                node.IsLazyLoaded = true;
+            }
+            else
+            {
+                // maxDepth 이후: 자식이 있으면 더미 자식 추가 (확장 화살표 표시)
+                bool hasVisibleChildren = false;
+                foreach (ModelItem child in item.Children)
+                {
+                    if (child != null && !child.IsHidden)
+                    {
+                        hasVisibleChildren = true;
+                        break;
+                    }
+                }
+
+                if (hasVisibleChildren)
+                {
+                    node.AddDummyChild();
+                }
+                else
+                {
+                    node.IsLazyLoaded = true;
+                }
+            }
+
+            return node;
+        }
+
+        /// <summary>
+        /// Lazy loading 콜백: 노드 확장 시 자식 노드를 실제 로드
+        /// </summary>
+        private void OnLazyLoadRequested(object sender, EventArgs e)
+        {
+            var node = sender as TreeNodeModel;
+            if (node == null || node.IsLazyLoaded || !node.HasDummyChild)
+                return;
+
+            var modelItem = node.SourceItem as ModelItem;
+            if (modelItem == null)
+                return;
+
+            // 더미 자식 제거
+            node.Children.Clear();
+
+            var newNodes = new List<TreeNodeModel>();
+
+            // 자식 노드를 1레벨만 로드 (각 자식은 다시 lazy)
+            foreach (ModelItem child in modelItem.Children)
+            {
+                var childNode = BuildTreeFromModelItem(child, node.Level + 1, newNodes, node.Level + 1);
                 if (childNode != null)
                 {
                     node.Children.Add(childNode);
                 }
             }
 
-            return node;
+            // 새 노드에 이벤트 구독
+            foreach (var newNode in newNodes)
+            {
+                newNode.PropertyChanged += OnTreeNodeSelectionChanged;
+                newNode.LazyLoadRequested += OnLazyLoadRequested;
+            }
+
+            node.IsLazyLoaded = true;
         }
 
         /// <summary>

@@ -9,15 +9,21 @@
 
 ## ⚠️ CRITICAL: DO NOT MODIFY
 
-### Load Hierarchy 구조 변경 금지
+### Load Hierarchy Lazy Loading 아키텍처
 
-**다음 코드는 절대 수정하지 마세요:**
+**Lazy Loading 구조 (v2.0.0):**
+- `LoadModelHierarchyAsync()` — 트리만 초기 2레벨 로드 (속성 미로드)
+- `LoadPropertiesAsync()` — 속성 데이터 별도 로드 (사용자 명시 실행)
+- `BuildTreeFromModelItem()` — maxDepth 이후 더미 자식으로 지연 로드
+- `OnLazyLoadRequested()` — 노드 확장 시 자식 on-demand 로드
+
+**다음 코드의 lazy loading 패턴을 유지하세요:**
 
 | 파일 | 메서드 | 이유 |
 |------|--------|------|
-| `DXwindowViewModel.cs` | `LoadModelHierarchyAsync()` | 445K+ 아이템 안정 처리 검증됨 |
 | `DXwindowViewModel.Filter.cs` | `SyncFilteredProperties()` | ObservableCollection 동기화 |
 | `NavisworksDataExtractor.cs` | `TraverseAndExtractProperties()` | 속성 추출 로직 |
+| `TreeNodeModel.cs` | `IsExpanded` setter | Lazy load 트리거 — 더미 자식 감지 후 이벤트 발생 |
 
 **금지된 패턴:**
 ```csharp
@@ -29,6 +35,9 @@ var cvs = new CollectionViewSource { Source = largeCollection };
 
 // ❌ NEVER: 대용량 ObservableCollection 개별 Add
 foreach (var item in items) collection.Add(item);  // 445K iterations = UI freeze
+
+// ❌ NEVER: 전체 트리를 한번에 빌드 (lazy loading 우회)
+BuildTreeFromModelItem(root, 0, allNodes, int.MaxValue);
 ```
 
 **안정 버전 태그:** `v0.6.1-stable` (2026-01-12 기준)

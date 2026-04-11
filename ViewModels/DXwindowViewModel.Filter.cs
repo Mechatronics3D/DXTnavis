@@ -89,7 +89,7 @@ namespace DXTnavis.ViewModels
         private void TriggerFilterDebounce()
         {
             // 데이터가 없으면 필터 적용 안함
-            if (AllHierarchicalProperties.Count == 0)
+            if (AllHierarchicalProperties.Count == 0 && AllObjectGroups.Count == 0)
                 return;
 
             _filterDebounceTimer?.Stop();

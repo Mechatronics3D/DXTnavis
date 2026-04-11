@@ -581,18 +581,35 @@
 
                     <!-- Main Export Buttons -->
                     <StackPanel Grid.Row="0" Grid.Column="0">
-                                            <!-- GLB Export Progress Text -->
-                                            <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
-                                                       Text="{Binding ExportGlbProgressText}"
-                                                       FontSize="12" Foreground="#1976D2" FontWeight="Bold"
-                                                       Margin="0,4,0,0" Visibility="{Binding IsExporting, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        <!-- Export Progress -->
+                        <StackPanel Visibility="{Binding IsExporting, Converter={StaticResource BoolToVisibilityConverter}}"
+                                    Margin="0,0,0,4">
+                            <TextBlock Text="{Binding ExportStatusMessage}"
+                                       FontSize="11" Foreground="#1565C0" TextWrapping="Wrap"/>
+                            <ProgressBar Value="{Binding ExportProgressPercentage}"
+                                         Minimum="0" Maximum="100" Height="8" Margin="0,2,0,0"/>
+                            <TextBlock Text="{Binding ExportGlbProgressText}"
+                                       FontSize="10" Foreground="#1976D2" FontWeight="Bold"
+                                       Margin="0,2,0,0"/>
+                        </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                            <Button Content="📦 Full Export"
-                                    Style="{StaticResource ActionButton}"
-                                    Background="#1565C0" Foreground="White"
+                            <Button Content="📦 Export"
                                     Command="{Binding ExportFullPipelineCommand}"
-                                    ToolTip="통합 출력: AllProperties + Unified CSV + Geometry + Mesh GLB + Adjacency"
-                                    Width="130" FontWeight="Bold"/>
+                                    ToolTip="선택 객체 통합 출력: AllProperties + Unified CSV + Geometry + Mesh GLB + Adjacency"
+                                    Width="130" FontWeight="Bold">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource ActionButton}">
+                                        <Setter Property="Background" Value="#FF4500"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsEnabled" Value="False">
+                                                <Setter Property="Background" Value="#CCCCCC"/>
+                                                <Setter Property="Foreground" Value="#888888"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
                             <Button Content="📊 AllProperties"
                                     Style="{StaticResource ActionButton}"
                                     Command="{Binding ExportAllPropertiesCommand}"

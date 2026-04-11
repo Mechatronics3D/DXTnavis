@@ -21,6 +21,22 @@ namespace DXTnavis.Services
         /// </summary>
         /// <param name="filePath">저장할 파일 경로</param>
         /// <param name="progress">진행률 보고를 위한 Progress 인스턴스</param>
+        /// <summary>
+        /// 이미 로드된 데이터를 사용하여 CSV 내보내기 (재추출 불필요)
+        /// </summary>
+        public void ExportAllPropertiesToCsv(string filePath, IProgress<(int percentage, string message)> progress, List<HierarchicalPropertyRecord> preloadedData)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+                throw new ArgumentException("파일 경로가 유효하지 않습니다.", nameof(filePath));
+
+            if (preloadedData == null || preloadedData.Count == 0)
+                throw new InvalidOperationException("내보낼 데이터가 없습니다.");
+
+            progress?.Report((0, "캐시된 데이터로 내보내기 시작..."));
+
+            ExportHierarchicalDataToCsv(filePath, preloadedData, progress);
+        }
+
         public void ExportAllPropertiesToCsv(string filePath, IProgress<(int percentage, string message)> progress)
         {
             if (string.IsNullOrWhiteSpace(filePath))
@@ -36,9 +52,14 @@ namespace DXTnavis.Services
             var extractor = new NavisworksDataExtractor();
             var hierarchicalData = new List<HierarchicalPropertyRecord>();
 
+            int modelIndex = 0;
+            int modelCount = doc.Models.Count;
             foreach (var model in doc.Models)
             {
                 extractor.TraverseAndExtractProperties(model.RootItem, Guid.Empty, 0, hierarchicalData);
+                modelIndex++;
+                progress?.Report((modelIndex * 10 / Math.Max(modelCount, 1), $"모델 {modelIndex}/{modelCount} 추출 완료..."));
+                WinForms.Application.DoEvents();
             }
 
             // UI 스레드에서 실행되므로 DoEvents로 ContextSwitchDeadlock 방지
@@ -49,6 +70,119 @@ namespace DXTnavis.Services
                 throw new InvalidOperationException("내보낼 데이터가 없습니다.");
             }
 
+            ExportHierarchicalDataToCsv(filePath, hierarchicalData, progress);
+        }
+
+        /// <summary>
+        /// 선택된 객체의 모든 속성을 계층 구조 포함하여 CSV 파일로 내보내기
+        /// </summary>
+        public void ExportPropertiesFromSelectionToCsv(
+            ModelItemCollection selectedItems,
+            string filePath,
+            IProgress<(int percentage, string message)> progress)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+                throw new ArgumentException("파일 경로가 유효하지 않습니다.", nameof(filePath));
+            if (selectedItems == null || selectedItems.Count == 0)
+                throw new ArgumentException("선택된 객체가 없습니다.");
+
+            progress?.Report((0, "선택 객체 속성 분석 중..."));
+
+            var extractor = new NavisworksDataExtractor();
+            var hierarchicalData = extractor.ExtractHierarchicalRecordsFromSelection(selectedItems);
+
+            WinForms.Application.DoEvents();
+
+            if (hierarchicalData.Count == 0)
+            {
+                throw new InvalidOperationException("내보낼 데이터가 없습니다.");
+            }
+
+            progress?.Report((10, "속성 구조 분석 중..."));
+
+            var allPropertyKeys = new SortedSet<string>();
+            var objectDataMap = new Dictionary<Guid, Dictionary<string, string>>();
+
+            foreach (var record in hierarchicalData)
+            {
+                string propertyKey = $"{record.Category}|{record.PropertyName}";
+                allPropertyKeys.Add(propertyKey);
+
+                if (!objectDataMap.ContainsKey(record.ObjectId))
+                {
+                    objectDataMap[record.ObjectId] = new Dictionary<string, string>
+                    {
+                        ["__ObjectId"] = record.ObjectId.ToString(),
+                        ["__ParentId"] = record.ParentId.ToString(),
+                        ["__Level"] = record.Level.ToString(),
+                        ["__DisplayName"] = record.DisplayName
+                    };
+                }
+
+                objectDataMap[record.ObjectId][propertyKey] = record.PropertyValue;
+            }
+
+            WinForms.Application.DoEvents();
+            progress?.Report((30, $"총 {objectDataMap.Count:N0}개 객체, {allPropertyKeys.Count:N0}개 고유 속성 발견. CSV 생성 중..."));
+            WinForms.Application.DoEvents();
+
+            using (var writer = new StreamWriter(filePath, false, Encoding.UTF8))
+            {
+                var headerParts = new List<string>
+                {
+                    "ObjectId",
+                    "ParentId",
+                    "Level",
+                    "객체이름"
+                };
+                headerParts.AddRange(allPropertyKeys);
+                writer.WriteLine(string.Join(",", headerParts.Select(h => EscapeCsvField(h))));
+
+                int processedObjects = 0;
+                foreach (var kvp in objectDataMap)
+                {
+                    try
+                    {
+                        var objectData = kvp.Value;
+                        var rowParts = new List<string>
+                        {
+                            objectData["__ObjectId"],
+                            objectData["__ParentId"],
+                            objectData["__Level"],
+                            EscapeCsvField(objectData["__DisplayName"])
+                        };
+
+                        foreach (var propertyKey in allPropertyKeys)
+                        {
+                            string value = objectData.ContainsKey(propertyKey) ? objectData[propertyKey] : string.Empty;
+                            rowParts.Add(EscapeCsvField(value));
+                        }
+
+                        writer.WriteLine(string.Join(",", rowParts));
+                        processedObjects++;
+
+                        if (processedObjects % 100 == 0)
+                        {
+                            int percentage = 30 + (int)((processedObjects / (double)objectDataMap.Count) * 65);
+                            progress?.Report((percentage, $"{processedObjects:N0} / {objectDataMap.Count:N0} 객체 저장 중..."));
+                            WinForms.Application.DoEvents();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"객체 저장 중 오류: {ex.Message}");
+                    }
+                }
+            }
+
+            progress?.Report((100, $"✅ 완료! {objectDataMap.Count:N0}개 객체, {allPropertyKeys.Count:N0}개 속성 열 저장됨"));
+        }
+
+        /// <summary>
+        /// HierarchicalPropertyRecord 리스트를 CSV 파일로 변환하는 공통 메서드
+        /// </summary>
+        private void ExportHierarchicalDataToCsv(string filePath, List<HierarchicalPropertyRecord> hierarchicalData, IProgress<(int percentage, string message)> progress)
+        {
             progress?.Report((10, "속성 구조 분석 중..."));
 
             // 1단계: 모든 고유한 속성 이름 수집 (Category | PropertyName 형식)
@@ -131,7 +265,7 @@ namespace DXTnavis.Services
                 }
             }
 
-            progress?.Report((100, $"✅ 완료! {objectDataMap.Count:N0}개 객체, {allPropertyKeys.Count:N0}개 속성 열 저장됨"));
+            progress?.Report((100, $"완료! {objectDataMap.Count:N0}개 객체, {allPropertyKeys.Count:N0}개 속성 열 저장됨"));
         }
 
         /// <summary>
