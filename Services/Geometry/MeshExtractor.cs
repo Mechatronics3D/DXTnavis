@@ -62,7 +62,12 @@ namespace DXTnavis.Services.Geometry
         /// <param name="item">Navisworks ModelItem</param>
         /// <param name="objectId">객체 고유 ID (파일명용)</param>
         /// <returns>MeshData (실패 시 null)</returns>
-        public MeshData ExtractMesh(ModelItem item, Guid objectId)
+        /// <summary>
+        /// Extract mesh from a ModelItem.
+        /// When includeChildren=true, skips the HasGeometry check so that
+        /// container nodes' aggregated child fragments are extracted via COM API.
+        /// </summary>
+        public MeshData ExtractMesh(ModelItem item, Guid objectId, bool includeChildren = false)
         {
             // Phase 25: Reset failure tracking
             LastFailureReason = TessFailureReason.None;
@@ -81,10 +86,11 @@ namespace DXTnavis.Services.Geometry
                 bool isHidden = item.IsHidden;
 
                 Debug.WriteLine($"[TESS_ATTEMPT] ObjectId={objectId:D}, Name={displayName}, Class={classDisplay}, IsLeaf={isLeaf}");
-                Debug.WriteLine($"[TESS_INFO] HasGeometry={hasGeom}, IsHidden={isHidden}, ClassDisplay={classDisplay}");
+                Debug.WriteLine($"[TESS_INFO] HasGeometry={hasGeom}, IsHidden={isHidden}, ClassDisplay={classDisplay}, includeChildren={includeChildren}");
 
                 // Phase 25: HasGeometry=false → 가시적 geometry가 없는 객체
-                if (!hasGeom)
+                // includeChildren=true이면 컨테이너 노드도 COM Fragments()로 하위 geometry 추출
+                if (!hasGeom && !includeChildren)
                 {
                     LastFailureReason = TessFailureReason.NoGeometry;
                     LastFailureDetail = string.Format("Name={0}, Class={1}", displayName, classDisplay);
@@ -1252,14 +1258,15 @@ namespace DXTnavis.Services.Geometry
             int normalByteLength = hasNormals ? meshData.Normals.Count * sizeof(float) : 0;
 
             // glTF spec: POSITION accessor MUST have min/max
+            // Z-up (Navisworks) → Y-up (glTF): gX = nX, gY = nZ, gZ = -nY
             float minX = float.MaxValue, minY = float.MaxValue, minZ = float.MaxValue;
             float maxX = float.MinValue, maxY = float.MinValue, maxZ = float.MinValue;
 
             for (int i = 0; i < meshData.Vertices.Count; i += 3)
             {
                 float x = meshData.Vertices[i];
-                float y = meshData.Vertices[i + 1];
-                float z = meshData.Vertices[i + 2];
+                float y = meshData.Vertices[i + 2];      // NW Z → glTF Y
+                float z = -meshData.Vertices[i + 1];     // -NW Y → glTF Z
                 if (x < minX) minX = x; if (x > maxX) maxX = x;
                 if (y < minY) minY = y; if (y > maxY) maxY = y;
                 if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
@@ -1359,6 +1366,7 @@ namespace DXTnavis.Services.Geometry
 
         /// <summary>
         /// 바이너리 버퍼 생성 (positions + [normals] + indices)
+        /// Z-up (Navisworks) → Y-up (glTF): gX = nX, gY = nZ, gZ = -nY
         /// </summary>
         private byte[] CreateBinaryBuffer(MeshData meshData)
         {
@@ -1368,15 +1376,23 @@ namespace DXTnavis.Services.Geometry
             using (var ms = new MemoryStream())
             using (var bw = new BinaryWriter(ms))
             {
-                // Positions
-                foreach (var v in meshData.Vertices)
-                    bw.Write(v);
+                // Positions (Z-up → Y-up)
+                for (int i = 0; i < meshData.Vertices.Count; i += 3)
+                {
+                    bw.Write(meshData.Vertices[i]);       // X → X
+                    bw.Write(meshData.Vertices[i + 2]);   // Z → Y
+                    bw.Write(-meshData.Vertices[i + 1]);  // -Y → Z
+                }
 
-                // Normals (smooth shading 지원)
+                // Normals (same axis swap)
                 if (hasNormals)
                 {
-                    foreach (var n in meshData.Normals)
-                        bw.Write(n);
+                    for (int i = 0; i < meshData.Normals.Count; i += 3)
+                    {
+                        bw.Write(meshData.Normals[i]);       // X → X
+                        bw.Write(meshData.Normals[i + 2]);   // Z → Y
+                        bw.Write(-meshData.Normals[i + 1]);  // -Y → Z
+                    }
                 }
 
                 // Indices

@@ -2161,31 +2161,15 @@ namespace DXTnavis.ViewModels
                 ExportStatusMessage = string.Format("Simplified GLB: Building model index ({0} objects)...", selectedObjectIds.Count);
                 FlushUI();
 
-                // 전체 모델을 1회 순회하여 매칭
-                var modelItems = new ModelItemCollection();
-                foreach (var model in doc.Models)
-                {
-                    if (model?.RootItem == null) continue;
-                    CollectMatchingItems(model.RootItem, selectedObjectIds, modelItems);
-                }
-
-                if (modelItems.Count == 0)
-                {
-                    MessageBox.Show("선택된 객체를 Navisworks에서 찾을 수 없습니다.", "오류", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-
-                doc.CurrentSelection.Clear();
-                doc.CurrentSelection.CopyFrom(modelItems);
-                var selectedItems = doc.CurrentSelection.SelectedItems;
-
                 string outputDir = System.IO.Path.Combine(folderDialog.SelectedPath,
                     string.Format("simplified_export_{0:yyyyMMdd_HHmmss}", DateTime.Now));
                 System.IO.Directory.CreateDirectory(outputDir);
 
                 var sw = System.Diagnostics.Stopwatch.StartNew();
 
-                // ── Stage 1: Geometry BBox 추출 (modelItemMap 구축) ──
+                // ── Stage 1: StableObjectId로 ModelItem 매칭 + BBox 추출 ──
+                // CollectMatchingItems는 InstanceGuid만 비교하므로 synthetic ID 불일치.
+                // GeometryExtractor.ComputeStableObjectId()로 정확한 ID 매칭.
                 ExportStatusMessage = "Simplified GLB: [1/3] Geometry 추출 중...";
                 ExportProgressPercentage = 5;
                 FlushUI();
@@ -2198,42 +2182,50 @@ namespace DXTnavis.ViewModels
                 };
                 geoExtractor.StatusChanged += (s, msg) => ExportStatusMessage = "Simplified GLB: [1/3] " + msg;
 
-                var geometries = geoExtractor.ExtractFromSelection(selectedItems);
-                var modelItemMap = geoExtractor.LastModelItemMap;
-                var parentChildMap = geoExtractor.LastParentChildMap;
-
-                // Container detection (same logic as full pipeline)
-                var containerIds = new HashSet<Guid>();
-                foreach (var kvp in parentChildMap)
+                // Walk entire model tree, match by StableObjectId (not InstanceGuid).
+                // No tree descent — export exactly what's selected.
+                // Containers (HasGeometry=false) are skipped by MeshExtractor.
+                var matchedItems = new List<ModelItem>();
+                int skippedContainers = 0;
+                foreach (var model in doc.Models)
                 {
-                    var parentId = kvp.Key;
-                    var childIds = kvp.Value;
-
-                    bool hasExportedChild = false;
-                    foreach (var childId in childIds)
+                    if (model?.RootItem == null) continue;
+                    foreach (var item in model.RootItem.DescendantsAndSelf)
                     {
-                        if (geometries.ContainsKey(childId)) { hasExportedChild = true; break; }
-                    }
-                    if (!hasExportedChild) continue;
+                        if (item.IsHidden) continue;
+                        var stableId = geoExtractor.ComputeStableObjectId(item);
+                        if (!selectedObjectIds.Contains(stableId)) continue;
 
-                    if (!geometries.ContainsKey(parentId) || geometries[parentId].BBox == null)
-                    {
-                        containerIds.Add(parentId);
-                        continue;
+                        if (item.HasGeometry)
+                            matchedItems.Add(item);
+                        else
+                            skippedContainers++;
                     }
-
-                    double parentVol = geometries[parentId].BBox.GetVolume();
-                    if (parentVol < 1e-9) { containerIds.Add(parentId); continue; }
-
-                    double childrenVolSum = 0;
-                    foreach (var childId in childIds)
-                    {
-                        if (geometries.ContainsKey(childId) && geometries[childId].BBox != null)
-                            childrenVolSum += geometries[childId].BBox.GetVolume();
-                    }
-                    if (childrenVolSum / parentVol >= 0.5)
-                        containerIds.Add(parentId);
                 }
+
+                System.Diagnostics.Debug.WriteLine(string.Format(
+                    "[SimplifiedGlb] Selected {0} groups → {1} with geometry, {2} containers skipped",
+                    selectedObjectIds.Count, matchedItems.Count, skippedContainers));
+
+                if (matchedItems.Count == 0)
+                {
+                    MessageBox.Show(string.Format("선택된 {0}개 그룹 중 Geometry를 가진 객체가 없습니다.\n"
+                        + "(컨테이너 {1}개 스킵됨)\n\n"
+                        + "HasGeometry=true인 레벨의 객체를 선택하세요.",
+                        selectedObjectIds.Count, skippedContainers),
+                        "알림", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                // 3D 선택 동기화
+                var modelItemsCol = new ModelItemCollection();
+                foreach (var mi in matchedItems) modelItemsCol.Add(mi);
+                doc.CurrentSelection.Clear();
+                doc.CurrentSelection.CopyFrom(modelItemsCol);
+
+                // BBox 추출 (선택된 객체의 geometry 보유 항목만)
+                var geometries = geoExtractor.ExtractAllBoundingBoxes(matchedItems);
+                var modelItemMap = geoExtractor.LastModelItemMap;
 
                 ExportProgressPercentage = 20;
                 FlushUI();
@@ -2261,15 +2253,6 @@ namespace DXTnavis.ViewModels
 
                         try
                         {
-                            if (containerIds.Contains(objectId))
-                            {
-                                meshProcessed++;
-                                if (meshProcessed % 50 == 0 || meshProcessed == meshTotal)
-                                    ExportProgressPercentage = 20 + (int)(50.0 * meshProcessed / meshTotal);
-                                if (meshProcessed % 10 == 0) FlushUI();
-                                continue;
-                            }
-
                             var meshData = meshExtractor.ExtractMesh(item, objectId);
 
                             if (meshData != null && meshData.VertexCount > 0)

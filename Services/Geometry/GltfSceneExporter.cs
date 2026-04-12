@@ -127,13 +127,17 @@ namespace DXTnavis.Services.Geometry
             return nodeCount;
         }
 
+        /// <summary>
+        /// Z-up (Navisworks) → Y-up (glTF) coordinate conversion:
+        ///   glTF X =  NW X,  glTF Y =  NW Z,  glTF Z = -NW Y
+        /// </summary>
         private static VERTEX MakeVertex(List<float> verts, List<float> norms, int index, bool hasNormals)
         {
             int i3 = index * 3;
-            var pos = new Vector3(verts[i3], verts[i3 + 1], verts[i3 + 2]);
+            var pos = new Vector3(verts[i3], verts[i3 + 2], -verts[i3 + 1]);
             Vector3 normal;
             if (hasNormals)
-                normal = new Vector3(norms[i3], norms[i3 + 1], norms[i3 + 2]);
+                normal = new Vector3(norms[i3], norms[i3 + 2], -norms[i3 + 1]);
             else
                 normal = Vector3.UnitY;
             return new VERTEX(pos, normal);
